@@ -4,6 +4,7 @@ import type {
   FinancialSummary,
   MatchItem,
   ReceivableItem,
+  SignalSet,
 } from "./types";
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
@@ -37,4 +38,9 @@ export const fetchMatches = (status?: string) =>
 export const fetchCfdis = (tipo?: string) =>
   get<{ total: number; items: CfdiItem[] }>(
     `/api/cfdis?limit=5${tipo ? `&tipo=${tipo}` : ""}`,
+  );
+
+export const fetchSignals = (month?: string) =>
+  get<{ month: string; signals: SignalSet }>(
+    `/api/signals${month ? `?month=${month}` : ""}`,
   );

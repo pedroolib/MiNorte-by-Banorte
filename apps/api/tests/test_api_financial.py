@@ -49,3 +49,13 @@ def test_summary_con_cxc_y_sin_factura():
     assert Decimal(body["cuentas_por_cobrar"]) == Decimal("76550.00")
     assert body["gastos_sin_cfdi_count"] == 4
     assert Decimal(body["gastos_sin_cfdi_total"]) == Decimal("2123.00")
+
+
+def test_signals_son_datos_sin_juicio():
+    body = client.get("/api/signals").json()
+    assert body["month"] == "2026-08"
+    s = body["signals"]
+    assert s["runway_dias"] == 4
+    assert Decimal(s["ratio_fondeo_interno"]) > Decimal("0.9")
+    assert "severity" not in s and "titulo" not in s
+    assert Decimal(s["gasto_por_categoria"]["spei_enviado"]) > 0

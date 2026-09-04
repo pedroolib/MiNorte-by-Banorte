@@ -62,6 +62,13 @@ def upsert_alerts(sb: Any, alertas: list[dict]) -> int:
     return len(rows)
 
 
+def delete_month_alerts(sb: Any, company_id: str, month: str) -> None:
+    """Reemplazo por mes: borra las del mes para que reglas retiradas
+    no queden como fantasmas (las deterministas se reinsertan)."""
+    (sb.table("alerts").delete().eq("company_id", company_id)
+     .eq("month", month).execute())
+
+
 def fetch_snapshot(sb: Any, company_id: str, month: str) -> dict | None:
     res = (sb.table("financial_snapshots").select("*")
            .eq("company_id", company_id).eq("month", month).execute())

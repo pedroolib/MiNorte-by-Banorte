@@ -82,8 +82,18 @@ def main() -> None:
         match_mes = {m.transaction_id: m.cfdi_id for m in matches}
         bal = en.balance_sheet(txns, cfdis, match_mes)
         alertas = al.generar_alertas(txns, cfdis, matches, anio, mes, company_id)
+        fr.delete_month_alerts(sb, company_id, mes_id)  # reemplazo: sin fantasmas
         fr.upsert_alerts(sb, alertas)
         sin = next((a for a in alertas if a["rule"] == "sin_factura"), None)
+        sig = en.signals(txns, anio, mes)
+
+        def _js(v):
+            if isinstance(v, Decimal):
+                return str(v)
+            if isinstance(v, dict):
+                return {k: _js(x) for k, x in v.items()}
+            return v
+
         fr.upsert_snapshot(sb, company_id, mes_id, {
             "ventas": ventas_b, "gastos": gastos_b,
             "utilidad": ventas_b - gastos_b,
@@ -99,6 +109,7 @@ def main() -> None:
                 "crec_ventas": str(met["crec_ventas"]) if met["crec_ventas"] is not None else None,
                 "crec_gastos": str(met["crec_gastos"]) if met["crec_gastos"] is not None else None,
                 "pagos_referenciados": str(tax["pagos_referenciados"]),
+                "signals": _js(sig),
             },
         })
         print(f"{mes_id}: ventas={ventas_b} gastos={gastos_b} "
