@@ -69,6 +69,7 @@ def parsear_xml(
     concepto = "; ".join(
         (c.get("Descripcion") or "").strip() for c in conceptos if c.get("Descripcion")
     ) or "SIN DESCRIPCION"
+    primero = conceptos[0] if conceptos else None
 
     fecha = root.get("Fecha", "")
     try:
@@ -97,6 +98,9 @@ def parsear_xml(
         forma_pago=root.get("FormaPago"),
         moneda=root.get("Moneda") or "MXN",
         uso_cfdi=receptor.get("UsoCFDI"),
+        clave_prodserv=primero.get("ClaveProdServ") if primero is not None else None,
+        clave_unidad=primero.get("ClaveUnidad") if primero is not None else None,
+        n_conceptos=len(conceptos),
     )
 
 

@@ -35,6 +35,10 @@ class Cfdi(BaseModel):
     forma_pago: Optional[str] = Field(default=None, examples=["03"])
     moneda: str = "MXN"
     uso_cfdi: Optional[str] = Field(default=None, examples=["G03"])
+    # Concepto principal (para clasificación por rubro T6)
+    clave_prodserv: Optional[str] = Field(default=None, examples=["72101500"])
+    clave_unidad: Optional[str] = Field(default=None, examples=["E48"])
+    n_conceptos: int = 1
 
     @field_validator("emisor_rfc", "receptor_rfc", mode="before")
     @classmethod

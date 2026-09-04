@@ -53,11 +53,30 @@ convertir con `Number()` antes de formatear.)
 
 * `GET /api/summary` — métricas del mes.
 * `GET /api/alerts?month=2026-08` — alertas **deterministas** con `payload.component`.
-* `GET /api/signals?month=2026-08` — señales numéricas (crecimientos, margen,
-  runway, fondeo interno): es lo que la IA recibe para decidir qué tarjetas mostrar.
+* `GET /api/signals?month=2026-08` — señales numéricas (abajo), es lo que
+  la IA recibe para decidir qué tarjetas mostrar.
 * `GET /api/receivables` — las 5 CxC con cliente, monto, vencimiento.
 * `GET /api/matches?status=unmatched` — los 4 gastos sin factura.
 * Detalle fila-por-fila: `seed/transactions.csv` + tablas Supabase.
+
+### Catálogo `signals()` (contrato para el Analista T8)
+
+Crecimiento: `crec_ventas`, `crec_gastos`, `brecha_pp`,
+`ticket_promedio/mediano_ingreso`, `clientes_activos_mes`,
+`clientes_nuevos_mes`, `hhi_ingresos` (0–1).
+Rentabilidad: `margen`, `margen_previo`, `margen_delta_pp`,
+`margen_operativo_excl_comisiones`, `burn_multiple`, `regla_40`,
+`operating_leverage` (None sin base).
+Liquidez: `burn_mensual`, `efectivo`, `runway_dias`,
+`cobertura_gastos_fijos`, `racha_signo` + `racha_meses`,
+`volatilidad_flujo`, `dso_dias`.
+Fiscal: `iva_trasladado`, `iva_acreditable`, `iva_neto`,
+`pct_gasto_deducible`, `brecha_pagos_provision`.
+Comercial: `cxc_total`, `cxc_count`, `cxc_antiguedad_promedio_dias`,
+`cxc_pct_vencida` ("hoy" = fin de mes), `cxc_top_cliente`.
+Estructura: `gasto_por_categoria`, `fondeo_interno`,
+`ratio_fondeo_interno`, `hhi_gasto_proveedores`, `masa_salarial_estimada`.
+Todo Decimal como string en JSON; `None` donde no hay base.
 
 Nota de arquitectura: las tarjetas finales las elige la IA compositora a
 partir de señales + alertas + su interpretación (tabla separada

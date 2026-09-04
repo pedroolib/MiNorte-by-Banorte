@@ -67,6 +67,9 @@ def cargar_csv(ruta: Path, company_id: str = "company_001") -> list[Transaction]
             if neto == 0:
                 continue  # fila informativa sin flujo (no debería pasar)
             tipo = "ingreso" if neto > 0 else "egreso"
+            desc = row["descripcion"]
+            merch = row.get("comercio") or "DESCONOCIDO"
+            cat = row.get("categoria") or clasificar(desc)
             txns.append(Transaction(
                 id=row["id"],
                 company_id=company_id,
@@ -74,13 +77,21 @@ def cargar_csv(ruta: Path, company_id: str = "company_001") -> list[Transaction]
                 amount=abs(neto),
                 currency="MXN",
                 date=datetime.fromisoformat(row["fecha"]),
-                description=row["descripcion"],
-                merchant_name=row.get("comercio") or "DESCONOCIDO",
+                description=desc,
+                merchant_name=merch,
                 merchant_rfc=row.get("rfc") or None,
                 type=tipo,
                 balance=Decimal(row["saldo"]) if row.get("saldo") else None,
                 source="banorte_mock",
                 es_interno=row.get("es_interno") == "1",
-                categoria=row.get("categoria") or clasificar(row["descripcion"]),
+                categoria=cat,
+                rubro=rubro_inicial(desc, merch, cat, tipo),
             ))
     return txns
+
+
+def rubro_inicial(desc: str, merchant: str, categoria: str, tipo: str) -> str:
+    """Rubro sin CFDI (el back-fill de compute lo refina con ClaveProdServ)."""
+    from app.financial.categorias import clasificar_rubro
+
+    return clasificar_rubro(desc, merchant, categoria, None, tipo)

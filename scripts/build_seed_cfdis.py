@@ -88,7 +88,9 @@ def cps_para(desc: str, categoria: str) -> tuple[str, str]:
         return "32101500", "COMPRA DE COMPONENTES ELECTRONICOS"
     m = re.search(r"PAGO (?:A PROVEEDOR )?PO (\d+)", d)
     if m:
-        return CPS_DEFAULT, f"PAGO A PROVEEDOR ORDEN {m.group(1)}"
+        # rotación determinista: la factura real del proveedor trae su clave
+        cps = ["72101500", "31161500", "78101800"][int(m.group(1)) % 3]
+        return cps, f"PAGO A PROVEEDOR ORDEN {m.group(1)}"
     if categoria in ("spei_enviado", "traspaso_terceros"):
         return CPS_DEFAULT, "PAGO A PROVEEDOR POR SERVICIOS"
     return CPS_DEFAULT, "COMPRA DE MATERIALES Y CONSUMIBLES"
