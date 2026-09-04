@@ -1,9 +1,12 @@
 import type {
   Alert,
   CfdiItem,
+  ContactItem,
+  DraftItem,
   FinancialSummary,
   MatchItem,
   ReceivableItem,
+  SendItem,
   SignalSet,
 } from "./types";
 
@@ -43,4 +46,38 @@ export const fetchCfdis = (tipo?: string) =>
 export const fetchSignals = (month?: string) =>
   get<{ month: string; signals: SignalSet }>(
     `/api/signals${month ? `?month=${month}` : ""}`,
+  );
+
+async function post<T>(path: string, body: unknown): Promise<T> {
+  const r = await fetch(`${API}${path}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+    cache: "no-store",
+  });
+  if (!r.ok) {
+    const detail = await r.json().catch(() => null);
+    throw new Error(
+      `API ${path}: ${r.status} ${JSON.stringify(detail?.detail ?? detail)}`,
+    );
+  }
+  return r.json() as Promise<T>;
+}
+
+export const fetchDrafts = () =>
+  get<{ items: DraftItem[] }>("/api/collections/draft");
+
+export const fetchContacts = () =>
+  get<{
+    contacts: ContactItem[];
+    cobertura: { receivable_id: string; customer_rfc: string; tiene_email: boolean }[];
+  }>("/api/collections/contacts");
+
+export const saveContact = (customer_rfc: string, email: string) =>
+  post<ContactItem>("/api/collections/contacts", { customer_rfc, email });
+
+export const sendReminders = (receivable_ids: string[], confirm: boolean, force = false) =>
+  post<{ provider: string; resumen: Record<string, number>; items: SendItem[] }>(
+    "/api/collections/send",
+    { receivable_ids, confirm, force },
   );
