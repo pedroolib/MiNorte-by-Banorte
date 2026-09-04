@@ -24,3 +24,5 @@ pnpm-debug.log*
 # OS / IDE
 .DS_Store
 .idea/
+
+seed/private

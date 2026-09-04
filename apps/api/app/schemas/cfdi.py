@@ -28,6 +28,13 @@ class Cfdi(BaseModel):
         default=None, examples=["seed/cfdis/emitido/A-1024.xml"]
     )
     status: CfdiStatus = "vigente"
+    # Datos del comprobante (opcionales, del XML)
+    serie: Optional[str] = None
+    folio: Optional[str] = None
+    metodo_pago: Optional[str] = Field(default=None, examples=["PUE"])
+    forma_pago: Optional[str] = Field(default=None, examples=["03"])
+    moneda: str = "MXN"
+    uso_cfdi: Optional[str] = Field(default=None, examples=["G03"])
 
     @field_validator("emisor_rfc", "receptor_rfc", mode="before")
     @classmethod

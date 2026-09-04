@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<cfdi:Comprobante xmlns:cfdi="http://www.sat.gob.mx/cfd/4" xmlns:tfd="http://www.sat.gob.mx/TimbreFiscalDigital" Version="4.0" Serie="A" Folio="1004" Fecha="2026-06-25T12:00:00" FormaPago="03" SubTotal="6917.39" Moneda="MXN" Total="8024.17" TipoDeComprobante="I" MetodoPago="PUE" LugarExpedicion="76087" Exportacion="01">
+ <cfdi:Emisor Rfc="CNM160812AB1" Nombre="CAFE NORTENO SA DE CV" RegimenFiscal="601"/>
+ <cfdi:Receptor Rfc="CBA170221B46" Nombre="COMERCIALIZADORA DEL BAJIO SA DE CV" DomicilioFiscalReceptor="76087" RegimenFiscalReceptor="601" UsoCFDI="G03"/>
+ <cfdi:Conceptos>
+  <cfdi:Concepto ClaveProdServ="78101800" Cantidad="1" ClaveUnidad="E48" Descripcion="FLETE DE MATERIALES Y EQUIPO" ValorUnitario="6917.39" Importe="6917.39"/>
+ </cfdi:Conceptos>
+ <cfdi:Impuestos TotalImpuestosTrasladados="1106.78">
+  <cfdi:Traslados>
+   <cfdi:Traslado Base="6917.39" Impuesto="002" TipoFactor="Tasa" TasaOCuota="0.160000" Importe="1106.78"/>
+  </cfdi:Traslados>
+ </cfdi:Impuestos>
+ <cfdi:Complemento>
+  <tfd:TimbreFiscalDigital Version="1.1" UUID="7E58EBAB-AB85-55A5-9C85-6391B075DAB1" FechaTimbrado="2026-06-25T12:05:00" RfcProvCertif="SAT970701NN3"/>
+ </cfdi:Complemento>
+</cfdi:Comprobante>

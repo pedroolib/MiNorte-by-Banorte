@@ -29,6 +29,10 @@ class Transaction(BaseModel):
     type: TransactionType
     balance: Optional[Decimal] = None
     source: TransactionSource = "banorte_mock"
+    # Traspasos entre cuentas propias: se excluyen de ventas/gastos (T4).
+    es_interno: bool = False
+    # Categoría heurística (banorte_csv.clasificar). T4 la refina.
+    categoria: str = "otro"
 
     @field_validator("merchant_rfc", mode="before")
     @classmethod

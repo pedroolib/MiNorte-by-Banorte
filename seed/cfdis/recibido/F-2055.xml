@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<cfdi:Comprobante xmlns:cfdi="http://www.sat.gob.mx/cfd/4" xmlns:tfd="http://www.sat.gob.mx/TimbreFiscalDigital" Version="4.0" Serie="F" Folio="2055" Fecha="2026-07-13T12:00:00" FormaPago="03" SubTotal="282.40" Moneda="MXN" Total="327.58" TipoDeComprobante="I" MetodoPago="PUE" LugarExpedicion="76087" Exportacion="01">
+ <cfdi:Emisor Rfc="DHL880115II9" Nombre="JORGE L. CAMPOS" RegimenFiscal="601"/>
+ <cfdi:Receptor Rfc="CNM160812AB1" Nombre="CAFE NORTENO SA DE CV" DomicilioFiscalReceptor="76087" RegimenFiscalReceptor="601" UsoCFDI="G03"/>
+ <cfdi:Conceptos>
+  <cfdi:Concepto ClaveProdServ="78102200" Cantidad="1" ClaveUnidad="E48" Descripcion="SERVICIO DE PAQUETERIA Y MENSAJERIA" ValorUnitario="282.40" Importe="282.40"/>
+ </cfdi:Conceptos>
+ <cfdi:Impuestos TotalImpuestosTrasladados="45.18">
+  <cfdi:Traslados>
+   <cfdi:Traslado Base="282.40" Impuesto="002" TipoFactor="Tasa" TasaOCuota="0.160000" Importe="45.18"/>
+  </cfdi:Traslados>
+ </cfdi:Impuestos>
+ <cfdi:Complemento>
+  <tfd:TimbreFiscalDigital Version="1.1" UUID="ECC00808-69B0-5C97-95EE-B90D4D482FC2" FechaTimbrado="2026-07-13T12:05:00" RfcProvCertif="SAT970701NN3"/>
+ </cfdi:Complemento>
+</cfdi:Comprobante>
