@@ -16,6 +16,10 @@ export type UISchema =
       props: { total_pending: number; invoices: unknown[] };
     }
   | {
+      component: "receipts_resolution";
+      props: { count: number; total: number };
+    }
+  | {
       component: "hiring_simulation";
       props: { monthly_cost: number };
     };

@@ -32,6 +32,23 @@ function ReceivablesResolution({
   );
 }
 
+function ReceiptsResolution({
+  count,
+  total,
+}: {
+  count: number;
+  total: number;
+}) {
+  return (
+    <div className="rounded-xl border p-3 text-sm">
+      {count} gastos necesitan factura (total ${total.toLocaleString("es-MX")}).{" "}
+      <button className="rounded-lg bg-black px-3 py-1 text-white">
+        Resolver
+      </button>
+    </div>
+  );
+}
+
 function HiringSimulation({ monthly_cost }: { monthly_cost: number }) {
   return (
     <div className="rounded-xl border p-3 text-sm">
@@ -44,6 +61,7 @@ function HiringSimulation({ monthly_cost }: { monthly_cost: number }) {
 const REGISTRY: Record<UISchema["component"], React.FC<any>> = {
   loan_comparison: LoanComparison,
   receivables_resolution: ReceivablesResolution,
+  receipts_resolution: ReceiptsResolution,
   hiring_simulation: HiringSimulation,
 };
 
