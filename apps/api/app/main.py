@@ -406,9 +406,11 @@ def api_chat(body: dict):
         except LLMError as e:
             raise HTTPException(502, f"modelo no disponible: {e}")
         chat_repo.guardar_turno(sb, cid, "asistente", r["respuesta"],
-                                [{"tool": t} for t in r["tools_usados"]])
+                                r.get("llamadas", [{"tool": t} for t in r["tools_usados"]]))
         return {"conversation_id": cid, "respuesta": r["respuesta"],
-                "tools_usados": r["tools_usados"], "truncado": r["truncado"]}
+                "tools_usados": r["tools_usados"],
+                "llamadas": r.get("llamadas", []),
+                "truncado": r["truncado"]}
     except HTTPException:
         raise
     except Exception as e:

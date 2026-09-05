@@ -13,6 +13,7 @@ ESPERADAS = {
     "get_financial_summary", "get_cash_flow", "get_signals",
     "get_open_receivables", "simulate_hiring", "simulate_loan",
     "get_customer_contact", "prepare_payment_reminder",
+    "get_merchants", "get_merchant_detail",
 }
 
 
@@ -52,9 +53,24 @@ def test_impls_formas():
     assert sig["signals"]["runway_dias"] == 4
 
 
-def test_server_expone_14():
+def test_server_expone_tools():
     import app.mcp.server as S
 
     assert S.mcp is not None
     tools = asyncio.run(S.mcp.list_tools())
     assert {t.name for t in tools} == ESPERADAS
+
+
+def test_drill_merchants():
+    from app.mcp import tools as T
+    prov = T.execute("get_merchants", {"rubro": "proveedores_materiales", "limit": 200})
+    assert len(prov) > 10
+    assert prov == sorted(prov, key=lambda r: (-float(r["total"]), r["nombre"]))
+    assert prov[0]["nombre"] == "LUCIA FERNANDEZ"
+    chicos = T.execute("get_merchants", {"min_total": "20000", "limit": 200})
+    assert all(float(r["total"]) >= 20000 for r in chicos)
+    assert len(chicos) < len(T.execute("get_merchants", {"limit": 200}))
+    det = T.execute("get_merchant_detail", {"nombre": "LUCIA FERNANDEZ"})
+    assert det["recurrente"] is True and det["meses_activo"] >= 3
+    assert len(det["serie"]) == 6
+    assert sum(float(s["total"]) for s in det["serie"]) == float(det["total_periodo"])

@@ -55,3 +55,27 @@ def test_cobertura_seed():
     rep = cat.cobertura(rows)
     assert rep["cobertura"] >= 0.95, rep["cobertura"]
     assert rep["total"] == 473
+
+
+def test_normalizar_rubro_acepta_display():
+    from app.financial.categorias import normalizar_rubro
+    assert normalizar_rubro("Proveedores de materiales") == "proveedores_materiales"
+    assert normalizar_rubro("Transporte Paquetería") == "transporte_paqueteria"
+    assert normalizar_rubro("NOMINA") == "nomina"
+    assert normalizar_rubro(None) is None
+    try:
+        normalizar_rubro("cohetes espaciales")
+        assert False, "debió fallar"
+    except ValueError as e:
+        assert "proveedores_materiales" in str(e)
+
+
+def test_merchants_acepta_display_y_enum():
+    from app.mcp import tools as T
+    a = T.execute("get_merchants", {"rubro": "Proveedores de materiales",
+                                    "min_total": None, "limit": 200, "month": None})
+    b = T.execute("get_merchants", {"rubro": "proveedores_materiales",
+                                    "min_total": None, "limit": 200, "month": None})
+    assert [r["nombre"] for r in a] == [r["nombre"] for r in b] and len(a) > 10
+    schema = next(t["parameters"] for t in T.TOOLS if t["name"] == "get_merchants")
+    assert "proveedores_materiales" in schema["properties"]["rubro"]["enum"]

@@ -74,7 +74,7 @@ def test_comercial_y_estructura():
     assert s["cxc_antiguedad_promedio_dias"] == 12.6
     assert s["cxc_pct_vencida"] == 0
     cerca(s["cxc_top_cliente"], "0.2782")
-    cerca(s["hhi_gasto_proveedores"], "0.0931")
+    cerca(s["hhi_gasto_proveedores"], "0.0760")  # nivel entidad, no cuenta
     assert s["fondeo_interno"] == Decimal("390000")
     cerca(s["ratio_fondeo_interno"], "0.9234")
     assert s["masa_salarial_estimada"] == Decimal("10542.50")

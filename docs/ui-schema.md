@@ -74,9 +74,17 @@ Fiscal: `iva_trasladado`, `iva_acreditable`, `iva_neto`,
 `pct_gasto_deducible`, `brecha_pagos_provision`.
 Comercial: `cxc_total`, `cxc_count`, `cxc_antiguedad_promedio_dias`,
 `cxc_pct_vencida` ("hoy" = fin de mes), `cxc_top_cliente`.
-Estructura: `gasto_por_categoria`, `fondeo_interno`,
-`ratio_fondeo_interno`, `hhi_gasto_proveedores`, `masa_salarial_estimada`.
+Estructura: `gasto_por_categoria`, `gasto_por_rubro` (por rubro: `total`,
+`n_negocios`, `top1{nombre,total}`, `top1_share`, `hint_drill`),
+`fondeo_interno`, `ratio_fondeo_interno`, `hhi_gasto_proveedores`,
+`masa_salarial_estimada`.
 Todo Decimal como string en JSON; `None` donde no hay base.
+
+Investigación progresiva (herramientas del Consultor): Nivel 0 = signals
+con hints; Nivel 1 = `get_merchants(rubro?, min_total?, limit?)`;
+Nivel 2 = `get_merchant_detail(nombre)` (serie mensual + recurrencia).
+Comercios se agrupan por NOMBRE (entidad); los RFCs se reservan para
+joins de contacto.
 
 Nota de arquitectura: las tarjetas finales las elige la IA compositora a
 partir de señales + alertas + su interpretación (tabla separada

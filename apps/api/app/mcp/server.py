@@ -70,6 +70,17 @@ if mcp is not None:  # pragma: no cover - transporte, no lógica
         return T.get_open_receivables()
 
     @mcp.tool()
+    def get_merchants(rubro: str | None = None, min_total: str | None = None,
+                      limit: int | None = 50, month: str | None = None) -> list:
+        """Nivel 1: comercios por rubro/monto."""
+        return T.get_merchants(rubro, min_total, limit, month)
+
+    @mcp.tool()
+    def get_merchant_detail(nombre: str, month: str | None = None) -> dict:
+        """Nivel 2: serie + recurrencia de un comercio."""
+        return T.get_merchant_detail(nombre, month)
+
+    @mcp.tool()
     def simulate_hiring(monthly_cost: str, month: str | None = None) -> dict:
         """¿Aguanta una contratación?"""
         return T.simulate_hiring(monthly_cost, month)
