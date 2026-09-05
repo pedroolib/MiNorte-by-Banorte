@@ -28,6 +28,8 @@ class Settings(BaseSettings):
 
     # IA / Email (se usan en T8-T9, solo placeholders en T0)
     OPENAI_API_KEY: str = ""
+    OPENAI_REASONING_MODEL: str = "gpt-4o"  # Consultor/Analista
+    OPENAI_FAST_MODEL: str = "gpt-4o-mini"  # loops operativos
     MAIL_PROVIDER: str = "log"  # log | resend
     RESEND_API_KEY: str = ""
     MAIL_FROM: str = ""  # ej. cobranza@tudominio.com (dominio verificado)

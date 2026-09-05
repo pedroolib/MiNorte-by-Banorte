@@ -82,3 +82,29 @@ def test_simulate_loan_francesa():
     assert r["veredicto"] == "no_viable"  # cobertura 0.79 < 1
     r2 = en.simulate_loan(Decimal("100000"), Decimal("400000"), Decimal("0.24"), 12)
     assert r2["veredicto"] == "viable"
+
+
+def _opts():
+    import json
+    from pathlib import Path
+    return json.loads((Path(__file__).resolve().parents[3] / "seed" / "credit_options.json").read_text())
+
+
+def test_compare_loans_ranking():
+    from app.financial import engine as en
+    r = en.compare_credit_options(Decimal("100000"), Decimal("400000"), _opts())
+    assert r["opciones_evaluadas"] > 0
+    rec = r["recomendada"]
+    assert rec is not None and rec["veredicto"] == "viable"
+    # la recomendada es la viable más barata
+    viables = [f for f in r["ranking"] if f["veredicto"] == "viable"]
+    assert rec["costo_total"] == min(f["costo_total"] for f in viables)
+    assert rec["cobertura"] >= 1
+
+
+def test_compare_loans_no_viable_y_fuera_rango():
+    from app.financial import engine as en
+    r = en.compare_credit_options(Decimal("5000"), Decimal("400000"), _opts())
+    assert r["recomendada"] is None or r["recomendada"]["veredicto"] != "viable"
+    r2 = en.compare_credit_options(Decimal("100000"), Decimal("50"), _opts())
+    assert r2["opciones_evaluadas"] == 0 and r2["recomendada"] is None

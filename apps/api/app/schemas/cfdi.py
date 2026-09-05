@@ -39,6 +39,7 @@ class Cfdi(BaseModel):
     clave_prodserv: Optional[str] = Field(default=None, examples=["72101500"])
     clave_unidad: Optional[str] = Field(default=None, examples=["E48"])
     n_conceptos: int = 1
+    lugar_expedicion: Optional[str] = Field(default=None, examples=["76087"])
 
     @field_validator("emisor_rfc", "receptor_rfc", mode="before")
     @classmethod

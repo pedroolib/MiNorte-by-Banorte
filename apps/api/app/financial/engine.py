@@ -175,6 +175,52 @@ def simulate_loan(utilidad_mensual: Decimal, amount: Decimal,
     }
 
 
+def compare_credit_options(utilidad_mensual: Decimal, amount: Decimal,
+                           options: list[dict],
+                           months: int | None = None) -> dict:
+    """Compara catálogo (mock Banorte) para un monto: pago, costo y cobertura.
+
+    Ordena viables por costo total (intereses + apertura). Recomienda la
+    viable más barata; si ninguna es viable lo dice con el pago mínimo.
+    Determinista: el Consultor solo interpreta el ranking.
+    """
+    filas: list[dict] = []
+    for op in options:
+        omin, omax = Decimal(op["monto_min"]), Decimal(op["monto_max"])
+        if not (omin <= amount <= omax):
+            continue
+        for n in op["plazos_meses"]:
+            if months is not None and n != months:
+                continue
+            sim = simulate_loan(utilidad_mensual, amount,
+                                Decimal(op["tasa_anual"]), int(n))
+            comision = (amount * Decimal(op.get("comision_apertura_pct", "0"))
+                        ).quantize(Decimal("0.01"))
+            filas.append({
+                "option_id": op["id"], "nombre": op["nombre"],
+                "tasa_anual": op["tasa_anual"], "plazo_meses": int(n),
+                "pago_mensual": sim["pago_mensual"],
+                "total_intereses": sim["total_intereses"],
+                "comision_apertura": comision,
+                "costo_total": sim["total_intereses"] + comision,
+                "cobertura": sim["cobertura_con_utilidad"],
+                "veredicto": sim["veredicto"],
+            })
+    viables = sorted(
+        (f for f in filas if f["veredicto"] == "viable"),
+        key=lambda f: f["costo_total"])
+    ajustadas = sorted(
+        (f for f in filas if f["veredicto"] == "ajustada"),
+        key=lambda f: f["costo_total"])
+    recomendada = (viables or ajustadas or [None])[0]
+    return {
+        "amount": amount, "opciones_evaluadas": len(filas),
+        "ranking": sorted(filas, key=lambda f: (f["veredicto"] != "viable",
+                                                f["costo_total"])),
+        "recomendada": recomendada,
+    }
+
+
 def ultimo_dia_con_saldo(txns: list[Transaction]) -> date | None:
     ordenados = sorted(txns, key=lambda t: (t.date, t.id))
     return ordenados[-1].date.date() if ordenados else None
@@ -197,6 +243,15 @@ def efectivo_a_fin_de_mes(txns: list[Transaction], anio: int, mes: int) -> Decim
         key=lambda t: (t.date, t.id),
     )
     return previas[-1].balance if previas else CERO
+
+
+def _cli_key(t: Transaction) -> str:
+    return (t.merchant_rfc or t.merchant_name or "?").upper()
+
+def _merch_key(t: Transaction) -> str:
+    """Nivel entidad (no cuenta): un proveedor cobrado por 2 cuentas sigue
+    siendo un proveedor. Los RFCs se reservan para joins de contacto."""
+    return (t.merchant_name or "?").upper()
 
 
 def signals(txns: list[Transaction], cfdis: list[Cfdi], matches: list[Match],
@@ -227,8 +282,6 @@ def signals(txns: list[Transaction], cfdis: list[Cfdi], matches: list[Match],
     # --- crecimiento: tickets y base de clientes (cobros no internos) ---
     cobros = sorted((t.amount for t in fm
                      if t.type == "ingreso" and not t.es_interno))
-    def _cli_key(t: Transaction) -> str:
-        return (t.merchant_rfc or t.merchant_name or "?").upper()
 
     clientes_mes = {_cli_key(t) for t in fm
                     if t.type == "ingreso" and not t.es_interno}
@@ -299,18 +352,38 @@ def signals(txns: list[Transaction], cfdis: list[Cfdi], matches: list[Match],
 
     # --- estructura ---
     por_cat: dict[str, Decimal] = {}
-    por_rubro: dict[str, Decimal] = {}
+    # rubro -> {total, n_negocios, top1:{nombre,total}, top1_share, hint_drill}
+    por_rubro: dict[str, dict] = {}
     for t in del_mes(txns, anio, mes):
         if t.type == "egreso" and not t.es_interno:
             por_cat[t.categoria] = por_cat.get(t.categoria, CERO) + t.amount
-            por_rubro[t.rubro] = por_rubro.get(t.rubro, CERO) + t.amount
-    directos = por_rubro.get("proveedores_materiales", CERO)
+            e = por_rubro.setdefault(t.rubro, {"total": CERO, "negocios": {}})
+            e["total"] += t.amount
+            k = _merch_key(t)
+            n = e["negocios"].get(k)
+            if n is None:
+                e["negocios"][k] = {"nombre": t.merchant_name, "total": t.amount}
+            else:
+                n["total"] += t.amount
+    rubros = {}
+    for rubro, e in por_rubro.items():
+        tops = sorted(e["negocios"].values(), key=lambda x: (-x["total"], x["nombre"]))
+        top1 = tops[0] if tops else {"nombre": "", "total": CERO}
+        share = (top1["total"] / e["total"]).quantize(Decimal("0.0001")) if e["total"] > 0 else CERO
+        rubros[rubro] = {
+            "total": e["total"], "n_negocios": len(tops),
+            "top1": {"nombre": top1["nombre"], "total": top1["total"]},
+            "top1_share": share,
+            # hint determinista: concentrado o fragmentado → vale profundizar
+            "hint_drill": bool(share > Decimal("0.25") or len(tops) >= 15),
+        }
+    directos = rubros.get("proveedores_materiales", {}).get("total", CERO)
     dep_int = sum((t.amount for t in fm
                    if t.type == "ingreso" and t.es_interno), CERO)
     por_prov: dict[str, Decimal] = {}
     for t in fm:
         if t.type == "egreso" and not t.es_interno:
-            por_prov[_cli_key(t)] = por_prov.get(_cli_key(t), CERO) + t.amount
+            por_prov[_merch_key(t)] = por_prov.get(_merch_key(t), CERO) + t.amount
     tot_prov = sum(por_prov.values(), CERO)
     hhi_prov = (sum(((v / tot_prov) ** 2 for v in por_prov.values()), CERO)
                 if tot_prov > 0 else None)
@@ -320,7 +393,10 @@ def signals(txns: list[Transaction], cfdis: list[Cfdi], matches: list[Match],
     pagados = sum((t.amount for t in fm if t.type == "egreso"
                    and t.categoria == "impuestos"), CERO)
 
-    return {
+    return _redondear({
+        # base
+        "ventas": ventas, "gastos": gastos, "utilidad": ventas - gastos,
+        "tiene_datos": len(fm) > 0, "n_movimientos": len(fm),
         # crecimiento
         "crec_ventas": cv, "crec_gastos": cg,
         "brecha_pp": (cg - cv) if (cv is not None and cg is not None) else None,
@@ -357,13 +433,127 @@ def signals(txns: list[Transaction], cfdis: list[Cfdi], matches: list[Match],
         "cxc_top_cliente": top_cxc,
         # estructura
         "gasto_por_categoria": por_cat,
-        "gasto_por_rubro": por_rubro,
+        "gasto_por_rubro": rubros,
         "margen_bruto_proxy": (((ventas - directos) / ventas)
                                if ventas > 0 else CERO),
         "fondeo_interno": dep_int,
         "ratio_fondeo_interno": (dep_int / ventas) if ventas > 0 else CERO,
         "hhi_gasto_proveedores": hhi_prov,
         "masa_salarial_estimada": masa,
+    })
+
+
+def _redondear(s: dict) -> dict:
+    """Ratios a 4 decimales y dinero a 2: menos ruido para el lector (y la IA)."""
+    ratios = {"crec_ventas", "crec_gastos", "brecha_pp", "margen",
+              "margen_previo", "margen_delta_pp",
+              "margen_operativo_excl_comisiones", "burn_multiple", "regla_40",
+              "operating_leverage", "hhi_ingresos", "hhi_gasto_proveedores",
+              "ratio_fondeo_interno", "pct_gasto_deducible", "cxc_top_cliente",
+              "cxc_pct_vencida", "cobertura_gastos_fijos",
+              "margen_bruto_proxy"}
+    dinero = {"ticket_promedio_ingreso", "ticket_mediano_ingreso", "dso_dias"}
+    out = {}
+    for k, v in s.items():
+        if isinstance(v, Decimal) and k in ratios:
+            out[k] = v.quantize(Decimal("0.0001"))
+        elif isinstance(v, Decimal) and k in dinero:
+            out[k] = v.quantize(Decimal("0.01"))
+        else:
+            out[k] = v
+    return out
+
+
+def brief_mensual(s: dict, anio: int, mes: int) -> list[str]:
+    """Verbalización determinística de señales (formato, cero juicio).
+
+    Lee en voz alta los números para que el modelo no los malinterprete.
+    Sin adjetivos: el juicio es del Analista.
+    """
+    mes_id = f"{anio}-{mes:02d}"
+
+    def pct(x):
+        if x is None:
+            return "s/d"
+        return f"{'+' if x >= 0 else ''}{float(x) * 100:.1f}%"
+
+    def mxn(x):
+        return f"${float(x):,.2f}"
+
+    if not s.get("tiene_datos"):
+        return [f"{mes_id}: SIN MOVIMIENTOS registrados (no es caída, es mes vacío)."]
+    rubros = s.get("gasto_por_rubro", {}) or {}
+    top_r = sorted(rubros.items(), key=lambda kv: kv[1]["total"], reverse=True)[:3]
+    def _top_rubro(r):
+        e = r[1]
+        drill = " → drill sugerido" if e.get("hint_drill") else ""
+        return f"{r[0]} {mxn(e['total'])} ({e['n_negocios']} negocios){drill}"
+    b = [
+        f"ventas {mes_id}: {mxn(s['ventas'])} ({pct(s['crec_ventas'])} vs mes previo)",
+        f"gastos {mes_id}: {mxn(s['gastos'])} ({pct(s['crec_gastos'])} vs mes previo)",
+        f"margen: {pct(s['margen'])} (previo {pct(s['margen_previo'])})",
+        f"efectivo a fin de mes: {mxn(s['efectivo'])}; burn mensual {mxn(s['burn_mensual'])}; runway {s['runway_dias']} días",
+        f"CxC abiertas: {s['cxc_count']} por {mxn(s['cxc_total'])}; vencidas {pct(s['cxc_pct_vencida'])}; DSO {s['dso_dias']} días",
+        f"fondeo interno del mes: {mxn(s['fondeo_interno'])} ({pct(s['ratio_fondeo_interno'])} de ingresos)",
+        f"gasto deducible con CFDI: {pct(s['pct_gasto_deducible'])}",
+        f"IVA del mes: trasladado {mxn(s['iva_trasladado'])}, acreditable {mxn(s['iva_acreditable'])}",
+        f"top rubros: {'; '.join(_top_rubro(r) for r in top_r) if top_r else 's/d'}",
+    ]
+    return b
+
+
+def merchants_por_rubro(txns: list[Transaction], anio: int, mes: int,
+                        rubro: str | None = None,
+                        min_total: Decimal | float | int = 0,
+                        limit: int = 50) -> list[dict]:
+    """Nivel 1: detalle por comercio (filtrable). Orden total desc, desempate
+    por nombre. Determinista: el agente decide cuántos traer."""
+    from app.financial.categorias import normalizar_rubro
+
+    codigo = normalizar_rubro(rubro)  # acepta "Proveedores de materiales"
+    acc: dict[str, dict] = {}
+    for t in del_mes(txns, anio, mes):
+        if t.type != "egreso" or t.es_interno:
+            continue
+        if codigo is not None and t.rubro != codigo:
+            continue
+        k = _merch_key(t)
+        n = acc.get(k)
+        if n is None:
+            acc[k] = {"nombre": t.merchant_name, "rubro": t.rubro,
+                      "total": t.amount, "n_movs": 1}
+        else:
+            n["total"] += t.amount
+            n["n_movs"] += 1
+    minimo = Decimal(str(min_total))
+    filas = [v for v in acc.values() if v["total"] >= minimo]
+    filas.sort(key=lambda v: (-v["total"], v["nombre"]))
+    return filas[: max(1, min(int(limit or 50), 200))]
+
+
+def merchant_detail(txns: list[Transaction], nombre: str,
+                    anio: int, mes: int, meses_atras: int = 6) -> dict:
+    """Nivel 2: serie mensual de un comercio + recurrencia (caza-fugas)."""
+    objetivo = (nombre or "").upper()
+    serie: list[dict] = []
+    a, m = anio, mes
+    for _ in range(max(1, min(int(meses_atras or 6), 12))):
+        fm = [t for t in del_mes(txns, a, m)
+              if t.type == "egreso" and not t.es_interno
+              and t.merchant_name.upper() == objetivo]
+        tot = sum((t.amount for t in fm), CERO)
+        serie.append({"month": f"{a}-{m:02d}", "total": tot, "n_movs": len(fm)})
+        m, a = (m - 1, a) if m > 1 else (12, a - 1)
+    serie.reverse()
+    activos = [s for s in serie if s["n_movs"] > 0]
+    tots = [s["total"] for s in activos]
+    return {
+        "nombre": nombre,
+        "serie": serie,
+        "meses_activo": len(activos),
+        "recurrente": len(activos) >= 3,
+        "ticket_promedio_mensual": (sum(tots, CERO) / len(tots)) if tots else CERO,
+        "total_periodo": sum(tots, CERO),
     }
 
 

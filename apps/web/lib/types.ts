@@ -142,3 +142,36 @@ export interface ContactItem {
   email: string | null;
   phone: string | null;
 }
+
+/** Perfil del negocio (T8). */
+export interface CompanyProfile {
+  company_id?: string;
+  giro: string;
+  ciudad: string;
+  estado: string;
+  cp: string;
+  tamanio: string;
+  empleados: number | null;
+  modelo: string;
+  notas: string;
+}
+
+/** Sugerencia detectada + origen de cada campo. */
+export interface ProfileSugerencia extends CompanyProfile {
+  giro_origen: string;
+  tamanio_origen: string;
+}
+
+/** Chat del Consultor (T8, permanente, no generativo). */
+export interface ChatMessage {
+  role: "user" | "assistant";
+  content: string;
+  tools?: string[];
+}
+
+export interface ChatResponse {
+  conversation_id: string;
+  respuesta: string;
+  tools_usados: string[];
+  truncado: boolean;
+}

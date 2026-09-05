@@ -101,6 +101,7 @@ def parsear_xml(
         clave_prodserv=primero.get("ClaveProdServ") if primero is not None else None,
         clave_unidad=primero.get("ClaveUnidad") if primero is not None else None,
         n_conceptos=len(conceptos),
+        lugar_expedicion=root.get("LugarExpedicion"),
     )
 
 

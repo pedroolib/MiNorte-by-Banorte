@@ -1,11 +1,14 @@
 import type {
   Alert,
   CfdiItem,
+  ChatResponse,
+  CompanyProfile,
   ContactItem,
   DashboardData,
   DraftItem,
   FinancialSummary,
   MatchItem,
+  ProfileSugerencia,
   ReceivableItem,
   SendItem,
   SignalSet,
@@ -52,8 +55,16 @@ export const fetchSignals = (month?: string) =>
   );
 
 async function post<T>(path: string, body: unknown): Promise<T> {
+  return request<T>(path, "POST", body);
+}
+
+async function put<T>(path: string, body: unknown): Promise<T> {
+  return request<T>(path, "PUT", body);
+}
+
+async function request<T>(path: string, method: string, body: unknown): Promise<T> {
   const r = await fetch(`${API}${path}`, {
-    method: "POST",
+    method,
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
     cache: "no-store",
@@ -84,3 +95,17 @@ export const sendReminders = (receivable_ids: string[], confirm: boolean, force 
     "/api/collections/send",
     { receivable_ids, confirm, force },
   );
+
+export const sendChat = (mensaje: string, conversation_id: string | null) =>
+  post<ChatResponse>("/api/chat", { mensaje, conversation_id });
+
+export const fetchProfile = () =>
+  get<{ configurado: boolean; perfil: CompanyProfile | null }>(
+    "/api/company/profile",
+  );
+
+export const saveProfile = (perfil: Partial<CompanyProfile>) =>
+  put<CompanyProfile>("/api/company/profile", perfil);
+
+export const fetchSugerencia = () =>
+  get<ProfileSugerencia>("/api/company/profile/sugerencia");
