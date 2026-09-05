@@ -266,7 +266,7 @@ def _company_row(sb, company_id: str) -> dict:
 
 
 def _cobranza_items(sb, company_id: str, ids: list[str] | None = None):
-    """(recs_json, cfdis_by_uuid, contacts_by_rfc, company)."""
+    """(recs_json, cfdis_by_uuid, contacts_list, company)."""
     try:
         recs = fr.fetch_receivables(sb, company_id)
     except Exception as e:
@@ -276,7 +276,7 @@ def _cobranza_items(sb, company_id: str, ids: list[str] | None = None):
         recs = [r for r in recs if r["id"] in ids]
     uuids = {r["cfdi_id"] for r in recs}
     cfdis = {c.uuid: c for c in _cfdis() if c.uuid in uuids}
-    contacts = {c["customer_rfc"]: c for c in col.list_contacts(sb, company_id)}
+    contacts = col.list_contacts(sb, company_id)
     return recs, cfdis, contacts, _company_row(sb, company_id)
 
 
@@ -294,7 +294,8 @@ def api_collections_draft(ids: str | None = None):
             continue
         out.append(op.prepare_draft(
             r, c.model_dump(mode="json"),
-            contacts.get(r["customer_rfc"]), company))
+            col.resolve(contacts, r["customer_rfc"], r.get("customer_name", "")),
+            company))
     return {"items": out}
 
 
@@ -304,10 +305,12 @@ def api_collections_contacts():
     sb = _sb_or_503()
     company_id = get_current_company()
     recs, _, contacts, _ = _cobranza_items(sb, company_id)
-    return {"contacts": list(contacts.values()),
+    return {"contacts": contacts,
             "cobertura": [
                 {"receivable_id": r["id"], "customer_rfc": r["customer_rfc"],
-                 "tiene_email": bool((contacts.get(r["customer_rfc"]) or {}).get("email"))}
+                 "customer_name": r.get("customer_name", ""),
+                 "tiene_email": bool((col.resolve(
+                     contacts, r["customer_rfc"], r.get("customer_name", "")) or {}).get("email"))}
                 for r in recs]}
 
 
@@ -346,7 +349,8 @@ def api_collections_send(body: dict):
             sb, company_id, body.get("receivable_ids"))
         drafts = [op.prepare_draft(
             r, cfdis[r["cfdi_id"]].model_dump(mode="json"),
-            contacts.get(r["customer_rfc"]), company)
+            col.resolve(contacts, r["customer_rfc"], r.get("customer_name", "")),
+            company)
             for r in recs if r["cfdi_id"] in cfdis]
         raise HTTPException(400, {"error": "confirm requerido", "drafts": drafts})
     try:
@@ -357,7 +361,8 @@ def api_collections_send(body: dict):
         sb, company_id, body.get("receivable_ids"))
     drafts = [op.prepare_draft(
         r, cfdis[r["cfdi_id"]].model_dump(mode="json"),
-        contacts.get(r["customer_rfc"]), company)
+        col.resolve(contacts, r["customer_rfc"], r.get("customer_name", "")),
+        company)
         for r in recs if r["cfdi_id"] in cfdis]
     force = bool(body.get("force"))
     items = op.send_batch(
@@ -432,9 +437,7 @@ def api_loans_apply(body: dict):
 
     from app.financial import engine as _en
     from app.mcp import tools as _T
-    from app.repositories import chat_repo
 
-    sb = _sb_or_503()
     company_id = get_current_company()
     try:
         opciones = _T.banorte_get_credit_options()["items"]
@@ -472,6 +475,9 @@ def api_loans_apply(body: dict):
              "veredicto": sim["veredicto"], "mock": True}
     if not body.get("confirm"):
         raise HTTPException(400, {"error": "confirm requerido", "terms": terms})
+    from app.repositories import chat_repo
+
+    sb = _sb_or_503()
     try:
         return chat_repo.registrar_solicitud(sb, company_id, terms)
     except Exception as e:

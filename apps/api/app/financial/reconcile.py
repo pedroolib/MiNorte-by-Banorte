@@ -32,12 +32,26 @@ VENTANA_DIAS = 15
 # Categorías fuera de conciliación (sin CFDI por definición)
 NO_CONCILIABLE = {"comision", "iva_comision", "impuestos"}
 
+# Comercios que no identifican contraparte (no sirven para match por nombre)
+GENERIC_MERCHANTS = ("DESCONOCIDO", "VENTAS TPV", "DEPOSITO DE TERCERO")
+
+
+def _nombre_util(nombre: str) -> bool:
+    n = (nombre or "").strip().upper()
+    if len(n) < 4 or ":" in n:
+        return False
+    return not (n in GENERIC_MERCHANTS
+                or n.startswith("COMPRA ORDEN DE PAGO SPEI"))
+
 
 def es_conciliable(t: Transaction) -> bool:
     if t.es_interno or t.categoria in NO_CONCILIABLE:
         return False
     if t.type == "ingreso":
         return t.categoria == "spei_recibido"
+    if t.source == "bbva_mock":
+        # BBVA no trae RFC: se concilia por nombre (verificado en piloto)
+        return _nombre_util(t.merchant_name)
     return bool(t.merchant_rfc)
 
 

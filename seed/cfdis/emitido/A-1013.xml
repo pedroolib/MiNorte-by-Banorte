@@ -3,7 +3,7 @@
  <cfdi:Emisor Rfc="CNM160812AB1" Nombre="CAFE NORTENO SA DE CV" RegimenFiscal="601"/>
  <cfdi:Receptor Rfc="DNO200415KX1" Nombre="DISTRIBUIDORA DEL NORTE SA DE CV" DomicilioFiscalReceptor="76087" RegimenFiscalReceptor="601" UsoCFDI="G03"/>
  <cfdi:Conceptos>
-  <cfdi:Concepto ClaveProdServ="78101800" Cantidad="1" ClaveUnidad="E48" Descripcion="FLETE DE MATERIALES Y EQUIPO" ValorUnitario="10689.66" Importe="10689.66"/>
+  <cfdi:Concepto ClaveProdServ="72101500" Cantidad="1" ClaveUnidad="E48" Descripcion="SERVICIO DE REPARACION DE MAQUINARIA" ValorUnitario="10689.66" Importe="10689.66"/>
  </cfdi:Conceptos>
  <cfdi:Impuestos TotalImpuestosTrasladados="1710.34">
   <cfdi:Traslados>

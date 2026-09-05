@@ -3,7 +3,7 @@
  <cfdi:Emisor Rfc="CNM160812AB1" Nombre="CAFE NORTENO SA DE CV" RegimenFiscal="601"/>
  <cfdi:Receptor Rfc="CBA170221B46" Nombre="COMERCIALIZADORA DEL BAJIO SA DE CV" DomicilioFiscalReceptor="76087" RegimenFiscalReceptor="601" UsoCFDI="G03"/>
  <cfdi:Conceptos>
-  <cfdi:Concepto ClaveProdServ="78101800" Cantidad="1" ClaveUnidad="E48" Descripcion="FLETE DE MATERIALES Y EQUIPO" ValorUnitario="7543.10" Importe="7543.10"/>
+  <cfdi:Concepto ClaveProdServ="72101500" Cantidad="1" ClaveUnidad="E48" Descripcion="SERVICIO DE SOLDADURA Y PAILERIA" ValorUnitario="7543.10" Importe="7543.10"/>
  </cfdi:Conceptos>
  <cfdi:Impuestos TotalImpuestosTrasladados="1206.90">
   <cfdi:Traslados>

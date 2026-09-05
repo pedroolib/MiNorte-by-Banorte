@@ -35,6 +35,42 @@ cfdis:
 db-load:
 	uv run --project apps/api python scripts/load_seed.py
 
+# ---- Piloto (datos reales en seed/private/, jamás en git) ----
+PILOTO_DIR = seed/private/piloto
+PILOTO_COMPANY = company_pilot
+
+pilot-csv:
+	uv run --project apps/api python scripts/build_pilot_bbva.py \
+	  --pdf "$(PILOTO_DIR)/chequera_jul2026.pdf" \
+	  --cuenta acc_bbva_001 --company $(PILOTO_COMPANY) --year 2026 \
+	  --saldo-inicial 463711.92 \
+	  --out "$(PILOTO_DIR)/transactions_jul2026.csv" \
+	  --expect "$(PILOTO_DIR)/esperado.json"
+
+pilot-cfdis:
+	uv run --project apps/api python scripts/build_pilot_cfdis.py \
+	  --csv "$(PILOTO_DIR)/transactions_jul2026.csv" \
+	  --outdir "$(PILOTO_DIR)/cfdis" \
+	  --company $(PILOTO_COMPANY) \
+	  --emisor-rfc PIGP000101AB1 --emisor-nombre "PEDRO PISTONES GARCIA" \
+	  --emisor-regimen 612 --cp 21000 --serie PILOTO \
+	  --unpaid-n 5 --unpaid-seed 42
+
+pilot-load:
+	COMPANY_ID=$(PILOTO_COMPANY) uv run --project apps/api python scripts/load_seed.py \
+	  --company $(PILOTO_COMPANY) \
+	  --company-json "$(PILOTO_DIR)/IDENTIDAD.json" \
+	  --accounts-json "$(PILOTO_DIR)/IDENTIDAD.json" \
+	  --csv "$(PILOTO_DIR)/transactions_jul2026.csv" \
+	  --cfdis-dir "$(PILOTO_DIR)/cfdis" \
+	  --profile-json "$(PILOTO_DIR)/IDENTIDAD.json" \
+	  --expect "$(PILOTO_DIR)/esperado_pilot.json"
+
+# uso: make pilot-wipe COMPANY=company_001            -> dry-run (solo muestra)
+#      make pilot-wipe COMPANY=company_001 CONFIRM=--confirm -> borra de verdad
+pilot-wipe:
+	uv run --project apps/api python scripts/wipe_company.py --company $(COMPANY) $(CONFIRM)
+
 # Calcula y persiste matches, CxC, snapshots y alertas (requiere 003).
 # --all para los 3 meses (default: último mes).
 compute:

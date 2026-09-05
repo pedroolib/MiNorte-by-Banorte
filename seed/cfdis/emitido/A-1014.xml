@@ -3,7 +3,7 @@
  <cfdi:Emisor Rfc="CNM160812AB1" Nombre="CAFE NORTENO SA DE CV" RegimenFiscal="601"/>
  <cfdi:Receptor Rfc="TPA180317G71" Nombre="TRANSPORTES DEL PACIFICO SA DE CV" DomicilioFiscalReceptor="76087" RegimenFiscalReceptor="601" UsoCFDI="G03"/>
  <cfdi:Conceptos>
-  <cfdi:Concepto ClaveProdServ="72101500" Cantidad="1" ClaveUnidad="E48" Descripcion="SERVICIO DE SOLDADURA Y PAILERIA" ValorUnitario="18362.07" Importe="18362.07"/>
+  <cfdi:Concepto ClaveProdServ="72101500" Cantidad="1" ClaveUnidad="E48" Descripcion="SERVICIO DE MANTENIMIENTO INDUSTRIAL" ValorUnitario="18362.07" Importe="18362.07"/>
  </cfdi:Conceptos>
  <cfdi:Impuestos TotalImpuestosTrasladados="2937.93">
   <cfdi:Traslados>
