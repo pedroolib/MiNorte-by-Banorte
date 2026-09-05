@@ -19,35 +19,16 @@ from app.db import get_supabase
 from app.financial import alerts as analyst
 from app.financial import engine as engine
 from app.financial import reconcile as rc
-from app.integrations.banking.banorte_csv import cargar_csv
 from app.integrations.mail.provider import MailError, get_mail_provider
-from app.integrations.sat import cfdi_xml as cx
 from app.operator import collections as op
-from app.repositories import cfdi_repo, collections_repo as col
+from app.repositories import collections_repo as col
 from app.repositories import financial_repo as fr
-from app.repositories import transactions_repo as repo
 from app.schemas.cfdi import Cfdi
 from app.schemas.financial import FinancialSummary
 from app.schemas.transaction import Transaction
 
 settings = get_settings()
 MX_TZ = ZoneInfo(settings.TZ)
-
-
-def _seed_path() -> Path:
-    # local: <repo>/seed · docker: /app/seed (ver docker-compose.yml)
-    candidatos = [Path.cwd() / "seed" / "transactions.csv"]
-    f = Path(__file__).resolve()
-    if len(f.parents) > 3:
-        candidatos.append(f.parents[3] / "seed" / "transactions.csv")
-    for p in candidatos:
-        if p.exists():
-            return p
-    return candidatos[0]
-
-
-SEED_CSV = _seed_path()
-SEED_CFDI_DIR = SEED_CSV.parent / "cfdis"
 
 app = FastAPI(title=settings.APP_NAME, version="0.1.0")
 
@@ -67,16 +48,10 @@ def get_current_company() -> str:
 
 @lru_cache
 def _seed() -> list[Transaction]:
-    company_id = get_settings().COMPANY_ID
-    sb = get_supabase()
-    if sb is not None:
-        try:
-            got = repo.fetch_ordered(sb, company_id)
-            if got:
-                return got
-        except Exception as e:  # sin tablas/red: degradar a CSV
-            print(f"[warn] Supabase no disponible ({e}); uso seed CSV local")
-    return cargar_csv(SEED_CSV, company_id=company_id)
+    """Delegado a app.data (fuente única API+MCP)."""
+    from app import data as _data
+
+    return _data.get_transactions()
 
 
 @app.get("/health")
@@ -86,23 +61,10 @@ def health():
 
 @lru_cache
 def _cfdis() -> list[Cfdi]:
-    """CFDIs: Supabase primero, XMLs del seed como fallback (T3)."""
-    from app.repositories import cfdi_repo
+    """CFDIs: delegado a app.data (T3)."""
+    from app import data as _data
 
-    company_id = get_settings().COMPANY_ID
-    sb = get_supabase()
-    if sb is not None:
-        try:
-            got = cfdi_repo.fetch_all(sb, company_id)
-            if got:
-                return got
-        except Exception as e:
-            print(f"[warn] cfdis Supabase no disponible ({e}); uso XMLs locales")
-    xmls = sorted(SEED_CFDI_DIR.rglob("*.xml")) if SEED_CFDI_DIR.exists() else []
-    return [
-        cx.parsear_archivo(p, company_id, "CNM160812AB1", base=SEED_CFDI_DIR)
-        for p in xmls
-    ]
+    return _data.get_cfdis()
 
 
 @app.get("/api/cfdis")
@@ -117,8 +79,10 @@ def api_cfdis(tipo: str | None = None, limit: int = 50):
 
 @lru_cache
 def _live_matches():
-    """Matches calculados al vuelo y cacheados (rápido en el seed)."""
-    return rc.conciliar(_seed(), _cfdis())
+    """Matches: delegado a app.data."""
+    from app import data as _data
+
+    return _data.get_matches()
 
 
 def _latest_month() -> str:
@@ -179,7 +143,8 @@ def api_signals(month: str | None = None):
             return {k: _j(x) for k, x in v.items()}
         return v
 
-    return {"month": month, "signals": {k: _j(v) for k, v in s.items()}}
+    return {"month": month, "signals": {k: _j(v) for k, v in s.items()},
+            "brief": engine.brief_mensual(s, anio, mes)}
 
 
 @app.get("/api/receivables")
@@ -404,3 +369,149 @@ def api_collections_send(body: dict):
     for it in items:
         resumen[it["status"]] = resumen.get(it["status"], 0) + 1
     return {"provider": provider.name, "resumen": resumen, "items": items}
+
+
+# ==================== Consultor + créditos (T8) ====================
+
+@app.post("/api/chat")
+def api_chat(body: dict):
+    """Pregúntame sobre tu negocio (Consultor: interpreta, no calcula)."""
+    from fastapi import HTTPException
+
+    from app.agents import consultant
+    from app.agents.llm import LLMError
+    from app.repositories import chat_repo
+
+    texto = (body.get("mensaje") or "").strip()
+    if not texto:
+        raise HTTPException(400, "mensaje vacío")
+    sb = _sb_or_503()
+    company_id = get_current_company()
+    cid = body.get("conversation_id")
+    try:
+        if cid:
+            if not chat_repo.get_conversacion(sb, company_id, cid):
+                raise HTTPException(404, "conversación no existe")
+        else:
+            cid = chat_repo.nueva_conversacion(sb, company_id)["id"]
+        historial = chat_repo.historial(sb, cid)
+        chat_repo.guardar_turno(sb, cid, "usuario", texto)
+        try:
+            from app.repositories import profile_repo
+            try:
+                perfil = profile_repo.get_profile(sb, company_id)
+            except Exception:
+                perfil = None
+            r = consultant.ask(texto, historial, perfil=perfil)
+        except LLMError as e:
+            raise HTTPException(502, f"modelo no disponible: {e}")
+        chat_repo.guardar_turno(sb, cid, "asistente", r["respuesta"],
+                                [{"tool": t} for t in r["tools_usados"]])
+        return {"conversation_id": cid, "respuesta": r["respuesta"],
+                "tools_usados": r["tools_usados"], "truncado": r["truncado"]}
+    except HTTPException:
+        raise
+    except Exception as e:
+        if "PGRST205" in str(e) or "Could not find the table" in str(e):
+            raise HTTPException(503, f"corre migrations/006_agents.sql ({e})")
+        raise
+
+
+@app.post("/api/loans/apply")
+def api_loans_apply(body: dict):
+    """Contratación MOCK de crédito del catálogo (spec #10).
+
+    Sin confirm=true devuelve 400 con términos para revisar.
+    Con confirm registra la solicitud (folio) — producción enchufaría Banorte.
+    """
+    from decimal import Decimal as _D
+
+    from fastapi import HTTPException
+
+    from app.financial import engine as _en
+    from app.mcp import tools as _T
+    from app.repositories import chat_repo
+
+    sb = _sb_or_503()
+    company_id = get_current_company()
+    try:
+        opciones = _T.banorte_get_credit_options()["items"]
+    except Exception as e:
+        raise HTTPException(503, str(e))
+    op = next((o for o in opciones if o["id"] == body.get("option_id")), None)
+    if not op:
+        raise HTTPException(400, {"error": "option_id inválido",
+                                  "opciones": [o["id"] for o in opciones]})
+    try:
+        monto = _D(str(body.get("amount", "")))
+    except Exception:
+        raise HTTPException(400, "amount inválido")
+    meses = body.get("months")
+    if meses is None:
+        meses = min(op["plazos_meses"])
+    if int(meses) not in op["plazos_meses"]:
+        raise HTTPException(400, {"error": "plazo no ofrecido",
+                                  "plazos": op["plazos_meses"]})
+    if not (_D(op["monto_min"]) <= monto <= _D(op["monto_max"])):
+        raise HTTPException(400, {"error": "monto fuera de rango",
+                                  "rango": [op["monto_min"], op["monto_max"]]})
+    txns = _seed()
+    a, m = map(int, _latest_month().split("-"))
+    util = _en.income_statement(txns, a, m)["utilidad"]
+    sim = _en.simulate_loan(util, monto, _D(op["tasa_anual"]), int(meses))
+    comision = (monto * _D(op.get("comision_apertura_pct", "0"))).quantize(_D("0.01"))
+    terms = {"option_id": op["id"], "nombre": op["nombre"],
+             "amount": str(monto), "plazo_meses": int(meses),
+             "tasa_anual": str(op["tasa_anual"]),
+             "pago_mensual": str(sim["pago_mensual"]),
+             "costo_total": str(sim["total_intereses"] + comision),
+             "cobertura": (str(sim["cobertura_con_utilidad"])
+                           if sim["cobertura_con_utilidad"] is not None else None),
+             "veredicto": sim["veredicto"], "mock": True}
+    if not body.get("confirm"):
+        raise HTTPException(400, {"error": "confirm requerido", "terms": terms})
+    try:
+        return chat_repo.registrar_solicitud(sb, company_id, terms)
+    except Exception as e:
+        raise HTTPException(503, f"corre migrations/006_agents.sql ({e})")
+
+
+# ==================== Perfil del negocio (T8) ====================
+
+@app.get("/api/company/profile")
+def api_company_profile():
+    """Perfil + bandera configurado (para /ajustes)."""
+    from app.repositories import profile_repo
+
+    sb = _sb_or_503()
+    company_id = get_current_company()
+    try:
+        row = profile_repo.get_profile(sb, company_id)
+    except Exception as e:
+        from fastapi import HTTPException
+        raise HTTPException(503, f"corre migrations/007_business_profiles.sql ({e})")
+    return {"configurado": row is not None, "perfil": row}
+
+
+@app.put("/api/company/profile")
+def api_company_profile_put(body: dict):
+    """Alta/edición manual del perfil (nunca lo pisa el seed)."""
+    from fastapi import HTTPException
+
+    from app.repositories import profile_repo
+
+    sb = _sb_or_503()
+    try:
+        return profile_repo.upsert_profile(sb, get_current_company(), body)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    except Exception as e:
+        raise HTTPException(503, f"corre migrations/007_business_profiles.sql ({e})")
+
+
+@app.get("/api/company/profile/sugerencia")
+def api_company_profile_sugerencia():
+    """Propuesta determinista desde datos (el dueño confirma en /ajustes)."""
+    from app.repositories import profile_repo
+
+    return profile_repo.sugerir_perfil(_seed(), _cfdis())

@@ -94,3 +94,23 @@ def test_junio_sin_historia():
 def test_signals_son_solo_datos():
     s = S(2026, 8)
     assert "severity" not in s and "titulo" not in s  # sin juicio
+
+
+def test_brief_dice_lo_mismo_que_los_numeros():
+    from app.financial import engine as en
+    s = en.signals(TXNS, CFDIS, MATCHES, 2026, 8)
+    b = "\n".join(en.brief_mensual(s, 2026, 8))
+    assert "+40.5%" in b and "+37.0%" in b  # crecen, no decrecen
+    assert "4 d" in b or "4 días" in b
+    assert "0.0%" in b  # vencidas 0, explícito
+    assert "422,364.67" in b
+
+
+def test_mes_vacio_no_parece_caida():
+    from app.financial import engine as en
+    s = en.signals(TXNS, CFDIS, MATCHES, 2026, 9)
+    assert s["tiene_datos"] is False and s["n_movimientos"] == 0
+    b = en.brief_mensual(s, 2026, 9)
+    assert any("SIN MOVIMIENTOS" in x for x in b)
+    s8 = en.signals(TXNS, CFDIS, MATCHES, 2026, 8)
+    assert s8["tiene_datos"] is True

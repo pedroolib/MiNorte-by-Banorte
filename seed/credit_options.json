@@ -1,0 +1,32 @@
+[
+  {
+    "id": "cred_simple_negocios",
+    "nombre": "Crédito Simple Negocios",
+    "descripcion": "Tasa fija, pago mensual, para capital de trabajo o equipamiento.",
+    "tasa_anual": "0.1890",
+    "monto_min": "50000.00",
+    "monto_max": "500000.00",
+    "plazos_meses": [12, 24, 36],
+    "comision_apertura_pct": "0.02"
+  },
+  {
+    "id": "cred_revolvente_negocios",
+    "nombre": "Crédito Revolvente Negocios",
+    "descripcion": "Línea disponible para imprevistos de flujo. Tasa mayor, plazo corto.",
+    "tasa_anual": "0.2450",
+    "monto_min": "30000.00",
+    "monto_max": "200000.00",
+    "plazos_meses": [6, 12],
+    "comision_apertura_pct": "0.01"
+  },
+  {
+    "id": "cred_equipamiento",
+    "nombre": "Crédito Equipamiento",
+    "descripcion": "Tasa preferencial a mayor plazo para maquinaria y equipo.",
+    "tasa_anual": "0.1650",
+    "monto_min": "100000.00",
+    "monto_max": "1000000.00",
+    "plazos_meses": [24, 36, 48],
+    "comision_apertura_pct": "0.025"
+  }
+]
