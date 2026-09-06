@@ -66,6 +66,12 @@ def _to_result(msg) -> ChatResult:
     return ChatResult(content=msg.content, tool_calls=calls)
 
 
+def tool_model() -> str:
+    """Modelo para loops con tools (puede no ser el de razonamiento)."""
+    s = get_settings()
+    return s.OPENAI_TOOL_MODEL or s.OPENAI_FAST_MODEL
+
+
 def chat(messages: list[dict], tools: list[ToolDef] | None = None,
          model: str | None = None, temperature: float | None = None) -> ChatResult:
     """Una llamada. messages: [{role, content}]."""

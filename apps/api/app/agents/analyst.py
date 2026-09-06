@@ -259,7 +259,7 @@ def run(month: str, executor=None, model: str | None = None,
           "falta) y emite EXACTAMENTE "
           f"{N_INSIGHTS} insights rankeados con su evidencia."}],
         tool_defs(), ex,
-        model or s.OPENAI_REASONING_MODEL, temperature=0.2)
+        model or llm.tool_model(), temperature=0.2)
     llamadas = [{"tool": a["tool"], "args": a.get("args", {})} for a in audit]
     modelo = model or s.OPENAI_REASONING_MODEL
 

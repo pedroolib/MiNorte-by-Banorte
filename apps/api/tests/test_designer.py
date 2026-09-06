@@ -175,3 +175,41 @@ def test_reserved_cards_deterministas():
     assert isinstance(tax["pct_deducible"], float)
     assert cards[1]["props"]["count"] == 4  # sin_factura del seed
     assert cards[2]["props"]["count"] == 5  # CxC del seed
+
+
+def test_tope_insight_text_va_a_reintento(monkeypatch):
+    muchos = {"cards": [_card(f"a{i}", "insight_text") for i in range(5)]}
+    pocos = {"cards": [_card("a2", "hero_number"),
+                       _card("a3", "hero_number"),
+                       _card("a4", "insight_text")]}
+    import app.agents.designer as G
+    assert G.MAX_TEXT == 2
+    fake = _fake(monkeypatch, muchos, pocos)
+    out = G.design([{"id": f"a{i}"} for i in range(5)],
+                   ["hero_number", "insight_text"])
+    assert fake.visto["pedidos"] == [None, 3]  # excedente (3) al reintento
+    assert [c["insight_id"] for c in out["cards"]] == \
+        ["a0", "a1", "a2", "a3", "a4"]
+    assert sum(1 for c in out["cards"]
+               if c["component"] == "insight_text") == 3  # 2 + 1 del retry
+
+
+def test_footnote_permitido_y_mapa_en_prompt():
+    import app.agents.designer as G
+    assert "donut_total" in G.KIND_HINTS and "footnote" in G.DESIGNER_SYSTEM
+    ok = {"insight_id": "a1", "component": "donut_total",
+          "props": {"title": "T", "center_value": "1", "center_label": "C",
+                    "segments": [{"label": "L", "value": 1}],
+                    "footnote": "El 98% está por cobrar."},
+          "rationale": "x"}
+    assert G.validate_choice(ok, ["donut_total"]) == []
+
+
+def test_uno_a_uno_lo_faltante_va_a_reintento(monkeypatch):
+    fake = _fake(monkeypatch,
+                 {"cards": [_card("a1")]},
+                 {"cards": [_card("a2", "insight_text")]})
+    out = D.design([{"id": "a1"}, {"id": "a2"}],
+                   ["hero_number", "insight_text"])
+    assert [c["insight_id"] for c in out["cards"]] == ["a1", "a2"]
+    assert fake.visto["pedidos"] == [None, 1]

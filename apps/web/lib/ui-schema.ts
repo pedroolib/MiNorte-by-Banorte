@@ -21,15 +21,15 @@ export type UISchema =
     }
   | {
       component: "multi_ring";
-      props: { items: { label: string; value: number }[] };
+      props: { items: { label: string; value: number }[]; footnote?: string };
     }
   | {
       component: "bars_total";
-      props: { title: string; total: string; values: number[]; labels: string[] };
+      props: { title: string; total: string; values: number[]; labels: string[]; footnote?: string };
     }
   | {
       component: "progress_list";
-      props: { title: string; items: { label: string; percent: number }[] };
+      props: { title: string; items: { label: string; percent: number }[]; footnote?: string };
     }
   | {
       component: "donut_total";
@@ -38,11 +38,12 @@ export type UISchema =
         center_value: string;
         center_label: string;
         segments: { label: string; value: number }[];
+        footnote?: string;
       };
     }
   | {
       component: "entity_cluster";
-      props: { title: string; subtitle: string; items: { name: string }[]; action_label?: string };
+      props: { title: string; subtitle: string; items: { name: string }[]; action_label?: string; footnote?: string };
     }
   | {
       component: "action_card";
@@ -57,7 +58,7 @@ export type UISchema =
     }
   | {
       component: "waterfall";
-      props: { title: string; bars: { label: string; value: number }[] };
+      props: { title: string; bars: { label: string; value: number }[]; footnote?: string };
     }
   | {
       component: "insight_text";
@@ -70,6 +71,7 @@ export type UISchema =
         points: { label: string; income: number; expenses: number }[];
         series: "income" | "expenses" | "both";
         period_label?: string;
+        footnote?: string;
       };
     }
   | {
@@ -90,7 +92,7 @@ export type UISchema =
     }
   | {
       component: "metric_trend";
-      props: { label: string; value: string; change: string; values: number[]; tone?: string };
+      props: { label: string; value: string; change: string; values: number[]; tone?: string; footnote?: string };
     }
   | {
       component: "transactions_list";

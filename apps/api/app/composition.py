@@ -165,7 +165,7 @@ def weekly_summary(cards: list[dict], month: str,
           f"Resume en 2-3 frases en español simple lo que ve el dueño "
           f"este mes {month} según estas tarjetas (sin inventar cifras, "
           f"solo conecta lo visible):\n{lineas}"}],
-        model=model or s.OPENAI_FAST_MODEL, temperature=0.2)
+        model=model or s.OPENAI_FAST_MODEL)
     return r.content or ""
 
 
@@ -187,9 +187,11 @@ def compose(month: str, pool: list[dict], anchor_comments: dict,
                 if it.get("severity") == "critical"
                 and it.get("actionability") == "high"]
     # Orden: críticas accionables, receivables, receipts, warnings impacto.
+    # Solo actionability high compite como acción; medium va a discovery
+    # (si no, el pool de acciones devora todo y no queda nada que rotar).
     acciones_pool = criticas + sorted(
         [it for it in pool if it.get("severity") == "warning"
-         and it.get("actionability") in ("high", "medium")],
+         and it.get("actionability") == "high"],
         key=lambda it: -_IMP.get(it.get("financial_impact"), 0))
     hay_problemas = bool(reservadas or criticas)
     # Regla obligatoria: si hay acciones pendientes, al menos 1 entra.
