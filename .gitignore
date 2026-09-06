@@ -28,3 +28,5 @@ pnpm-debug.log*
 seed/private
 # Cinturón extra: ningún PDF con estados reales entra al repo jamás
 *.pdf
+# TypeScript
+*.tsbuildinfo
