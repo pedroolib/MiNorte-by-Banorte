@@ -114,3 +114,47 @@ def test_mes_vacio_no_parece_caida():
     assert any("SIN MOVIMIENTOS" in x for x in b)
     s8 = en.signals(TXNS, CFDIS, MATCHES, 2026, 8)
     assert s8["tiene_datos"] is True
+
+
+def test_cxc_rfc_generico_fallback_a_nombre():
+    """CFDIs generados por IA con XAXX compartido: la entidad es el nombre.
+    Con el bug viejo (agrupar por RFC) top daría 1.0 con 2 clientes."""
+    from datetime import datetime
+
+    from app.schemas.cfdi import Cfdi
+
+    def _cfdi(nombre, total, rfc="XAXX010101000"):
+        return Cfdi(uuid=f"00000000-0000-4000-8000-00000000{total:04d}",
+                    company_id="company_001", tipo="emitido",
+                    emisor_rfc="CNM160812AB1", emisor_nombre="Café Norteño",
+                    receptor_rfc=rfc, receptor_nombre=nombre,
+                    total=Decimal(total), subtotal=Decimal(total),
+                    iva=Decimal("0"),
+                    fecha_emision=datetime(2026, 8, 10),
+                    concepto="Venta")
+
+    cfdis = [_cfdi("Cliente A", 3000), _cfdi("Cliente B", 1000)]
+    s = en.signals([], cfdis, [], 2026, 8)
+    assert s["cxc_count"] == 2 and s["cxc_total"] == Decimal("4000")
+    cerca(s["cxc_top_cliente"], "0.75")  # 3000/4000 por nombre, no 1.0 por RFC
+
+
+def test_cxc_rfc_real_manda_sobre_nombre():
+    """Mismo cliente con 2 nombres pero RFC real: sigue siendo uno solo."""
+    from datetime import datetime
+
+    from app.schemas.cfdi import Cfdi
+
+    def _cfdi(nombre, total):
+        return Cfdi(uuid=f"11111111-1111-4000-8000-00000000{total:04d}",
+                    company_id="company_001", tipo="emitido",
+                    emisor_rfc="CNM160812AB1", emisor_nombre="Café Norteño",
+                    receptor_rfc="CUPU800825569", receptor_nombre=nombre,
+                    total=Decimal(total), subtotal=Decimal(total),
+                    iva=Decimal("0"),
+                    fecha_emision=datetime(2026, 8, 10),
+                    concepto="Venta")
+
+    cfdis = [_cfdi("CUPU Sucursal 1", 3000), _cfdi("CUPU Sucursal 2", 1000)]
+    s = en.signals([], cfdis, [], 2026, 8)
+    cerca(s["cxc_top_cliente"], "1.0")  # mismo RFC real = un cliente

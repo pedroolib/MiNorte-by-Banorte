@@ -219,6 +219,25 @@ def efectivo_a_fin_de_mes(txns: list[Transaction], anio: int, mes: int) -> Decim
 def _cli_key(t: Transaction) -> str:
     return (t.merchant_rfc or t.merchant_name or "?").upper()
 
+
+#: RFCs genéricos del SAT que NO identifican a nadie: ventas a público
+#: en general (XAXX*) y operaciones con extranjeros (XAXE*). Agrupar por
+#: ellos fusiona a todos los clientes en uno solo (cxc_top_cliente = 1.0
+#: fantasma). Con estos o sin RFC, la entidad es el NOMBRE.
+_RFC_GENERICOS = ("XAXX", "XAXE")
+
+
+def _entidad_cfdi(c) -> str:
+    """Llave de agrupación de un CFDI: RFC, con fallback a nombre.
+
+    RFC real -> manda (un cliente con 2 nombres sigue siendo uno).
+    RFC genérico o vacío -> nombre (CFDIs generados sin RFC verdadero).
+    """
+    rfc = (c.receptor_rfc or "").upper().strip()
+    if rfc and not rfc.startswith(_RFC_GENERICOS):
+        return rfc
+    return (c.receptor_nombre or rfc or "?").upper().strip() or "?"
+
 def _merch_key(t: Transaction) -> str:
     """Nivel entidad (no cuenta): un proveedor cobrado por 2 cuentas sigue
     siendo un proveedor. Los RFCs se reservan para joins de contacto."""
@@ -313,7 +332,8 @@ def signals(txns: list[Transaction], cfdis: list[Cfdi], matches: list[Match],
                        else c.fecha_emision.date() + timedelta(days=30)) < fin_mes)
     por_cli: dict[str, Decimal] = {}
     for c in abiertas:
-        por_cli[c.receptor_rfc] = por_cli.get(c.receptor_rfc, CERO) + c.total
+        k = _entidad_cfdi(c)
+        por_cli[k] = por_cli.get(k, CERO) + c.total
     top_cxc = (max(por_cli.values()) / tot_cxc) if tot_cxc > 0 else None
     # deducibilidad: egresos conciliables del mes con match
     eleg = [t for t in fm if t.type == "egreso" and es_conciliable(t)]
@@ -395,6 +415,7 @@ def signals(txns: list[Transaction], cfdis: list[Cfdi], matches: list[Match],
         # fiscal
         "iva_trasladado": iva_t, "iva_acreditable": iva_a,
         "iva_neto": iva_t - iva_a,
+        "isr_estimado": provision,
         "pct_gasto_deducible": (Decimal(con_cfdi) / len(eleg)) if eleg else None,
         "brecha_pagos_provision": pagados - provision,
         # comercial CxC
@@ -534,3 +555,69 @@ def _por_llave(fm: list[Transaction], llave, tipo: str) -> list[Decimal]:
         if t.type == tipo and not t.es_interno:
             acc[llave(t)] = acc.get(llave(t), CERO) + t.amount
     return list(acc.values())
+
+
+# Catálogo de métricas: nombre -> (descripción, unidad, familia).
+# Se deriva de las keys de signals(); si agregas una señal sin registrarla
+# aquí, test_metric_catalog_cubre_signals falla a propósito.
+METRIC_CATALOG: dict[str, dict] = {
+    # base
+    "ventas": ("Ventas del mes (cobros no internos).", "MXN", "base"),
+    "gastos": ("Gastos del mes (pagos no internos).", "MXN", "base"),
+    "utilidad": ("Ventas menos gastos.", "MXN", "base"),
+    "tiene_datos": ("Si el mes tiene movimientos.", "bool", "base"),
+    "n_movimientos": ("Número de movimientos del mes.", "conteo", "base"),
+    # crecimiento
+    "crec_ventas": ("Crecimiento MoM de ventas.", "tasa", "crecimiento"),
+    "crec_gastos": ("Crecimiento MoM de gastos.", "tasa", "crecimiento"),
+    "brecha_pp": ("Diferencia crec_gastos menos crec_ventas, en puntos.", "pp", "crecimiento"),
+    "ticket_promedio_ingreso": ("Ticket promedio de cobro.", "MXN", "crecimiento"),
+    "ticket_mediano_ingreso": ("Ticket mediano de cobro.", "MXN", "crecimiento"),
+    "clientes_activos_mes": ("Clientes distintos que pagaron en el mes.", "conteo", "crecimiento"),
+    "clientes_nuevos_mes": ("Clientes que pagan por primera vez.", "conteo", "crecimiento"),
+    "hhi_ingresos": ("Concentración de ingresos 0-1 (1 = un solo cliente).", "índice", "crecimiento"),
+    # rentabilidad
+    "margen": ("Utilidad entre ventas.", "tasa", "rentabilidad"),
+    "margen_previo": ("Margen del mes previo.", "tasa", "rentabilidad"),
+    "margen_delta_pp": ("Cambio de margen en puntos.", "pp", "rentabilidad"),
+    "margen_operativo_excl_comisiones": ("Margen sin comisiones bancarias.", "tasa", "rentabilidad"),
+    "burn_multiple": ("Burn entre ventas (eficiencia).", "tasa", "rentabilidad"),
+    "regla_40": ("Crecimiento más margen.", "tasa", "rentabilidad"),
+    "operating_leverage": ("Apalancamiento operativo (%Δutilidad / %Δventas).", "tasa", "rentabilidad"),
+    # liquidez
+    "burn_mensual": ("Quema neta mensual (0 si hay superávit).", "MXN", "liquidez"),
+    "efectivo": ("Saldo a fin de mes.", "MXN", "liquidez"),
+    "runway_dias": ("Días de caja al ritmo actual.", "días", "liquidez"),
+    "cobertura_gastos_fijos": ("Efectivo entre gastos fijos (veces).", "veces", "liquidez"),
+    "racha_signo": ("Signo de la racha: 1 superávit, -1 burn, 0 corte.", "signo", "liquidez"),
+    "racha_meses": ("Meses consecutivos con el mismo signo.", "meses", "liquidez"),
+    "volatilidad_flujo": ("Coeficiente de variación de netos diarios.", "índice", "liquidez"),
+    "dso_dias": ("Días de cobro pendientes.", "días", "liquidez"),
+    # fiscal
+    "iva_trasladado": ("IVA cobrado en emitidos del mes.", "MXN", "fiscal"),
+    "iva_acreditable": ("IVA pagado en recibidos del mes.", "MXN", "fiscal"),
+    "iva_neto": ("Trasladado menos acreditable.", "MXN", "fiscal"),
+    "isr_estimado": ("Provisión ISR estimada del mes.", "MXN", "fiscal"),
+    "pct_gasto_deducible": ("Fracción de egresos conciliables con CFDI.", "tasa", "fiscal"),
+    "brecha_pagos_provision": ("Pagos referenciados menos provisión ISR.", "MXN", "fiscal"),
+    # comercial CxC
+    "cxc_total": ("Total por cobrar abierto.", "MXN", "comercial"),
+    "cxc_count": ("Facturas abiertas.", "conteo", "comercial"),
+    "cxc_antiguedad_promedio_dias": ("Antigüedad media de CxC.", "días", "comercial"),
+    "cxc_pct_vencida": ("Fracción vencida.", "tasa", "comercial"),
+    "cxc_top_cliente": ("Participación del mayor cliente en CxC.", "tasa", "comercial"),
+    # estructura
+    "gasto_por_categoria": ("Gasto por categoría SAT.", "mapa", "estructura"),
+    "gasto_por_rubro": ("Gasto por rubro con top1 y hints.", "mapa", "estructura"),
+    "margen_bruto_proxy": ("1 menos directos sobre ventas.", "tasa", "estructura"),
+    "fondeo_interno": ("Traspasos internos recibidos.", "MXN", "estructura"),
+    "ratio_fondeo_interno": ("Fondeo interno entre ventas.", "tasa", "estructura"),
+    "hhi_gasto_proveedores": ("Concentración de gasto 0-1.", "índice", "estructura"),
+    "masa_salarial_estimada": ("Egresos con NOMINA en descripción.", "MXN", "estructura"),
+}
+
+
+def metric_catalog() -> list[dict]:
+    """Catálogo auto-generado: una entrada por key de signals()."""
+    return [{"nombre": k, "descripcion": v[0], "unidad": v[1], "familia": v[2]}
+            for k, v in METRIC_CATALOG.items()]

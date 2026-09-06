@@ -54,3 +54,15 @@ def test_consultant_credito_real():
                ("banorte_compare_loans", "banorte_get_credit_options", "evaluar_gasto"))
     assert len(out["respuesta"]) > 50
     print("\nRESPUESTA:", out["respuesta"][:400])
+
+
+def test_analyst_real_sobre_seed():
+    from app.agents import analyst
+    from app.mcp import tools as T
+
+    out = analyst.run("2026-08", executor=T.execute, model="gpt-4o-mini")
+    assert 1 <= len(out["insights"]) <= 6
+    assert "get_signals" in out["tools_usados"]
+    for i in out["insights"]:
+        assert i["evidencia"], i["kind"]  # ninguna cifra sin cita
+    print("\nINSIGHTS:", [(i["severity"], i["titulo"]) for i in out["insights"]])

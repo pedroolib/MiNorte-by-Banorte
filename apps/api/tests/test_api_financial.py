@@ -59,3 +59,12 @@ def test_signals_son_datos_sin_juicio():
     assert Decimal(s["ratio_fondeo_interno"]) > Decimal("0.9")
     assert "severity" not in s and "titulo" not in s
     assert Decimal(s["gasto_por_categoria"]["spei_enviado"]) > 0
+
+
+def test_metric_ok_y_desconocida():
+    r = client.get("/api/metric", params={"name": "runway_dias", "month": "2026-08"})
+    assert r.status_code == 200
+    assert r.json()["value"] == 4
+    r = client.get("/api/metric", params={"name": "no_existe"})
+    assert r.status_code == 400
+    assert "Disponibles" in r.json()["detail"]

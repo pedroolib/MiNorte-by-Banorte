@@ -67,8 +67,32 @@ abstraído (`log`|`resend`). `/cobranza` funcional sin diseño.
 2. MCP in-process (FastMCP): banking, fiscal, financial y operaciones no-browser
    sobre funciones existentes (lista en spec #20).
 3. Consultor `POST /api/chat` + `conversations/messages` (migración `006`).
-4. Analista: señales → `analyst_insights` (tabla separada, spec acordado).
-5. Contador: narración del cierre (el cálculo ya existe).
+4. Analista ✅: `agents/analyst.py` (EXACTAMENTE 10 insights, una sola
+   llamada). Regla de hierro: ningún dato sale del modelo — meses vía
+   `get_months_with_data` (nueva tool MCP), valores de evidencia
+   SOBRESCRITOS con `get_signals` antes de guardar; mes vacío → 422 sin
+   gastar LLM. Guardas: catálogo exacto, sin-None, kind único, veto a
+   comparativos con 1 mes. Reintento combinado; si persiste, falla sin
+   guardar. `para_disenador()` → `design()`. Orden critical→warning→info.
+   Verificado en vivo vs motor: 0 discrepancias (piloto 2026-07).
+   Motor: CxC se agrupa por RFC con fallback a nombre si es genérico
+   (XAXX/XAXE) o vacío (`_entidad_cfdi`); RFC genérico nunca es llave.
+   Diseñador ✅ endurecido: `PROPS_SCHEMAS` espejo de `ui-schema.ts`
+   (17 componentes, listas no vacías, extras permitidos), reintento
+   combinado con schemas de props en el prompt; si persiste, `LLMError`
+   sin parcial. Reservadas SIEMPRE deterministas (`reserved_cards`):
+   `tax_summary` (nueva señal `isr_estimado`), `receipts_resolution` y
+   `receivables_resolution` (payloads de alertas); el Diseñador las tiene
+   prohibidas y el Analista avisado de no duplicar sus totales.
+   `POST /api/analyst/run` idempotente + `GET /api/analyst/insights`
+   (tabla `010_analyst_insights.sql` — aplicar en SQL Editor).
+5. Diseñador ✅: `agents/designer.py` (insights → tarjetas del catálogo
+   congelado, validación determinista). Descubre por `metric_catalog` +
+   `get_metric` (+ endpoint `GET /api/metric`); nombre inexistente devuelve
+   el catálogo, nunca null. Mapper determinista adelgazado a lo mecánico
+   (`sin_factura`, `cuentas_por_cobrar`); resto al Diseñador con fallback
+   `insight_text`.
+6. Contador: narración del cierre (el cálculo ya existe).
 
 ## TIER 2 — Ticket + browser (TUYO)
 Flujo spec §3.3 caso 1 + §19, con datos y contratos ya listos:
@@ -94,5 +118,6 @@ Flujo spec §3.3 caso 1 + §19, con datos y contratos ya listos:
 
 ## Pendientes transversales
 * `SUPABASE_SERVICE_ROLE_KEY` (opcional; hoy basta la publicable).
-* Endurecer RLS al meter auth. `analyst_insights` nace en T8.
+* Endurecer RLS al meter auth. `analyst_insights` nace aplicada en
+  Supabase con `migrations/010_analyst_insights.sql` (pendiente aplicar).
 * `GET /api/transactions` no existe a propósito (detalle en CSV/Supabase).
