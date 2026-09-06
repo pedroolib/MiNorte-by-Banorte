@@ -67,21 +67,11 @@ def test_taxes_provision_y_pagado():
     assert en.estimate_taxes(fixture(), 2026, 7)["provision_isr"] == Decimal("1200.00")
 
 
-def test_simulate_hiring_veredictos():
-    r = en.simulate_hiring(fixture(), 2026, 7, Decimal("20000"))
-    assert r["cubre_con_utilidad"] is False
-    assert r["veredicto"] == "no_viable"  # burn 0? neto +3000 -> burn 0 + 20000
-    r2 = en.simulate_hiring(fixture(), 2026, 7, Decimal("3000"))
-    assert r2["cubre_con_utilidad"] is True and r2["veredicto"] == "viable"
-
-
-def test_simulate_loan_francesa():
-    r = en.simulate_loan(Decimal("30000"), Decimal("400000"), Decimal("0.24"), 12)
-    # 400000*0.02/(1-1.02^-12) = 37,823.84 (amortización francesa exacta)
-    assert r["pago_mensual"] == Decimal("37823.84")
-    assert r["veredicto"] == "no_viable"  # cobertura 0.79 < 1
-    r2 = en.simulate_loan(Decimal("100000"), Decimal("400000"), Decimal("0.24"), 12)
-    assert r2["veredicto"] == "viable"
+def test_amortizar_francesa_exacta():
+    # 400000*0.02/(1-1.02^-12) = 37,823.84 (misma matemática que el evaluador
+    # genérico y /api/loans; las simulaciones hardcodeadas se quitaron)
+    assert en.amortizar_francesa(Decimal("400000"), Decimal("0.02"), 12) == Decimal("37823.84")
+    assert en.amortizar_francesa(Decimal("12000"), Decimal("0"), 12) == Decimal("1000.00")
 
 
 def _opts():

@@ -582,17 +582,23 @@ def api_loans_apply(body: dict):
                                   "rango": [op["monto_min"], op["monto_max"]]})
     txns = _seed()
     a, m = map(int, _latest_month().split("-"))
-    util = _en.income_statement(txns, a, m)["utilidad"]
-    sim = _en.simulate_loan(util, monto, _D(op["tasa_anual"]), int(meses))
+    fm = [t for t in txns if (t.date.year, t.date.month) == (a, m)]
+    util = sum((t.amount for t in fm if t.type == "ingreso"), _D("0")) - sum(
+        (t.amount for t in fm if t.type == "egreso"), _D("0"))
+    pago = _en.amortizar_francesa(monto, _D(op["tasa_anual"]) / 12, int(meses))
+    total_intereses = pago * int(meses) - monto
+    cobertura = (util / pago) if pago > 0 else None
+    veredicto = ("no_viable" if cobertura is None or cobertura < 1
+                 else "ajustada" if cobertura < _D("1.5") else "viable")
     comision = (monto * _D(op.get("comision_apertura_pct", "0"))).quantize(_D("0.01"))
     terms = {"option_id": op["id"], "nombre": op["nombre"],
              "amount": str(monto), "plazo_meses": int(meses),
              "tasa_anual": str(op["tasa_anual"]),
-             "pago_mensual": str(sim["pago_mensual"]),
-             "costo_total": str(sim["total_intereses"] + comision),
-             "cobertura": (str(sim["cobertura_con_utilidad"])
-                           if sim["cobertura_con_utilidad"] is not None else None),
-             "veredicto": sim["veredicto"], "mock": True}
+             "pago_mensual": str(pago),
+             "costo_total": str(total_intereses + comision),
+             "cobertura": (str(cobertura)
+                           if cobertura is not None else None),
+             "veredicto": veredicto, "mock": True}
     if not body.get("confirm"):
         raise HTTPException(400, {"error": "confirm requerido", "terms": terms})
     from app.repositories import chat_repo

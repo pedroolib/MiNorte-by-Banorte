@@ -21,18 +21,21 @@ class FakeLLM:
 
 
 def test_ask_pasa_historial_y_tools(monkeypatch):
-    fake = FakeLLM("ok", [{"tool": "simulate_hiring"}])
+    fake = FakeLLM("ok", [{"tool": "evaluar_gasto"}])
     import app.agents.consultant as C
     monkeypatch.setattr(C.llm, "run_tool_loop", fake.run_tool_loop)
     out = C.ask("¿contrato?", [{"role": "user", "content": "hola"}],
                 executor=lambda n, a: {}, model="m")
     assert out["respuesta"] == "ok"
-    assert out["tools_usados"] == ["simulate_hiring"]
+    assert out["tools_usados"] == ["evaluar_gasto"]
     assert out["truncado"] is False
     assert fake.visto["history"][-1] == {"role": "user", "content": "¿contrato?"}
     assert fake.visto["n_tools"] == len(consultant.CONSULTANT_TOOLS)
     assert fake.visto["temperature"] == 0.2  # factual, no creativo
-    assert "simulate_hiring" in consultant.CONSULTANT_TOOLS
+    assert "evaluar_gasto" in consultant.CONSULTANT_TOOLS
+    assert "get_variables_gasto" in consultant.CONSULTANT_TOOLS
+    assert "simulate_hiring" not in consultant.CONSULTANT_TOOLS
+    assert "simulate_loan" not in consultant.CONSULTANT_TOOLS
     assert "send_payment_reminder_email" not in consultant.CONSULTANT_TOOLS
 
 

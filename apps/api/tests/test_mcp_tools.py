@@ -11,7 +11,7 @@ ESPERADAS = {
     "banorte_get_credit_options", "banorte_compare_loans",
     "sat_list_cfdis", "sat_get_cfdi",
     "get_financial_summary", "get_cash_flow", "get_signals",
-    "get_open_receivables", "simulate_hiring", "simulate_loan",
+    "get_open_receivables", "get_variables_gasto", "evaluar_gasto",
     "get_customer_contact", "prepare_payment_reminder",
     "get_merchants", "get_merchant_detail",
 }
@@ -74,3 +74,20 @@ def test_drill_merchants():
     assert det["recurrente"] is True and det["meses_activo"] >= 3
     assert len(det["serie"]) == 6
     assert sum(float(s["total"]) for s in det["serie"]) == float(det["total_periodo"])
+
+
+def test_evaluar_gasto_registry_y_faltantes():
+    from app.mcp import tools as T
+    t = next(x for x in T.TOOLS if x["name"] == "evaluar_gasto")
+    items = t["parameters"]["properties"]["variables"]["items"]
+    assert items["additionalProperties"] is False
+    assert items["required"] == ["nombre", "valor", "unidad"]
+    assert "simulate_hiring" not in {x["name"] for x in T.TOOLS}
+    assert "simulate_loan" not in {x["name"] for x in T.TOOLS}
+    import pytest
+    with pytest.raises(Exception, match="falta:"):
+        T.execute("evaluar_gasto", {"expense_type": "auto", "month": None,
+                                    "horizon_months": None, "variables": [],
+                                    "etapas": None})
+    g = T.execute("get_variables_gasto", {"expense_type": "renta"})
+    assert any(v["nombre"] == "monthly_rent" for v in g["variables"])
