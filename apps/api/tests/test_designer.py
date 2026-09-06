@@ -60,7 +60,7 @@ class FakeLLM:
         self.visto["tools"] = sorted(t.name for t in tools)
         return "nada nuevo", [{"tool": "get_metric"}], False
 
-    def chat_json(self, messages, schema, model=None):
+    def chat_json(self, messages, schema, model=None, strict=True):
         n = schema["properties"]["cards"].get("maxItems")
         self.visto.setdefault("pedidos", []).append(n)
         self.visto["mensajes"] = [m["content"] for m in messages]

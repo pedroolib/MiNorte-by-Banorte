@@ -71,12 +71,21 @@ abstraído (`log`|`resend`). `/cobranza` funcional sin diseño.
    llamada). Regla de hierro: ningún dato sale del modelo — meses vía
    `get_months_with_data` (nueva tool MCP), valores de evidencia
    SOBRESCRITOS con `get_signals` antes de guardar; mes vacío → 422 sin
-   gastar LLM. Guardas: catálogo exacto, sin-None, kind único, veto a
-   comparativos con 1 mes. Reintento combinado; si persiste, falla sin
-   guardar. `para_disenador()` → `design()`. Orden critical→warning→info.
+   gastar LLM. Insights con `family`/`financial_impact`/`actionability` +
+   `anchor_analysis[4]` (solo comentarios; números los pone composición).
+   Guardas: catálogo exacto, sin-None, kind único, veto a comparativos con
+   1 mes, anti-duplicación de reservadas. Reintento combinado; si persiste,
+   falla sin guardar. Orden critical→warning→info.
    Verificado en vivo vs motor: 0 discrepancias (piloto 2026-07).
    Motor: CxC se agrupa por RFC con fallback a nombre si es genérico
    (XAXX/XAXE) o vacío (`_entidad_cfdi`); RFC genérico nunca es llave.
+5. Composition Engine ✅ (JSON, sin página aún): `app/composition.py`
+   (4 anchors con trend % en código + comentario, acciones condicionales
+   con regla obligatoria, discovery con scoring del spec + diversidad
+   máx 2/familia, `weekly_summary` al componer) + `GET /api/dashboard/gen`
+   idempotente por semana + memoria `insight_exposures` +
+   `dashboard_compositions` (migraciones 011/012 — aplicar en SQL Editor).
+   Listo para `DynamicUI` (falta `financial_anchor` en registry web).
    Diseñador ✅ endurecido: `PROPS_SCHEMAS` espejo de `ui-schema.ts`
    (17 componentes, listas no vacías, extras permitidos), reintento
    combinado con schemas de props en el prompt; si persiste, `LLMError`

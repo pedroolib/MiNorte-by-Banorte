@@ -555,7 +555,9 @@ def api_chat(body: dict):
     except HTTPException:
         raise
     except Exception as e:
-        if "PGRST205" in str(e) or "Could not find the table" in str(e):
+        if ("PGRST205" in str(e) or "PGRST204" in str(e)
+            or "Could not find the table" in str(e)
+            or "Could not find the 'family' column" in str(e)):
             raise HTTPException(503, f"corre migrations/006_agents.sql ({e})")
         raise
 
@@ -593,11 +595,26 @@ def api_analyst_run(body: dict | None = None):
         try:
             guardados = _ar.reemplazar(sb, company_id, month, r["insights"])
         except Exception as e:
-            if "PGRST205" in str(e) or "Could not find the table" in str(e):
+            if ("PGRST205" in str(e) or "PGRST204" in str(e)
+                    or "Could not find the table" in str(e)
+                    or "Could not find the 'family' column" in str(e)
+                    or "Could not find the 'actionability' column" in str(e)):
                 raise HTTPException(
-                    503, f"corre migrations/010_analyst_insights.sql ({e})")
+                    503, "corre migrations/010_analyst_insights.sql y "
+                         f"012_analyst_scoring.sql ({e})")
+            raise
+        try:
+            anchors = _ar.guardar_anchors(sb, company_id, month,
+                                          r.get("anchor_analysis", []))
+        except Exception as e:
+            if ("PGRST205" in str(e) or "PGRST204" in str(e)
+            or "Could not find the table" in str(e)
+            or "Could not find the 'family' column" in str(e)):
+                raise HTTPException(
+                    503, f"corre migrations/012_analyst_scoring.sql ({e})")
             raise
         return {"month": month, "insights": guardados,
+                "anchor_analysis": anchors,
                 "tools_usados": r["tools_usados"],
                 "truncado": r["truncado"]}
     except HTTPException:
@@ -618,9 +635,65 @@ def api_analyst_insights(month: str | None = None):
         return {"month": month,
                 "insights": _ar.listar(sb, company_id, month)}
     except Exception as e:
-        if "PGRST205" in str(e) or "Could not find the table" in str(e):
+        if ("PGRST205" in str(e) or "PGRST204" in str(e)
+            or "Could not find the table" in str(e)
+            or "Could not find the 'family' column" in str(e)):
             raise HTTPException(
                 503, f"corre migrations/010_analyst_insights.sql ({e})")
+        raise
+
+
+@app.get("/api/dashboard/gen")
+def api_dashboard_gen(month: str | None = None, week: str | None = None):
+    """Dashboard generativo JSON (sin frontend aún, listo para DynamicUI).
+
+    4 anchors + acciones condicionales + discovery rotativo + summary.
+    Idempotente por semana ISO: si ya existe, la devuelve sin regenerar
+    (sin gastar LLM).
+    """
+    from fastapi import HTTPException
+
+    from app import composition as _cp
+    from app.agents.llm import LLMError
+    from app.mcp import tools as _T
+    from app.repositories import analyst_repo as _ar
+    from app.repositories import composition_repo as _cr
+
+    sb = _sb_or_503()
+    company_id = get_current_company()
+    month = month or _latest_month()
+    wid = week or _cp.week_id()
+    try:
+        cached = _cr.leer_composicion(sb, company_id, wid)
+    except Exception:
+        cached = None
+    if cached:
+        return cached
+    try:
+        pool = _ar.listar(sb, company_id, month)
+        comments = {a["metric"]: a["comment"]
+                    for a in _ar.listar_anchors(sb, company_id, month)}
+        exposures = _cr.historial(sb, company_id)
+        try:
+            out = _cp.compose(month, pool, comments, exposures, _T.execute,
+                              wid)
+        except LLMError as e:
+            raise HTTPException(502, f"modelo no disponible: {e}")
+        exps = out.pop("_exposures")
+        try:
+            _cr.guardar_composicion(sb, company_id, wid, month, out)
+            _cr.registrar(sb, company_id, wid, exps)
+        except Exception as e:
+            if ("PGRST205" in str(e) or "PGRST204" in str(e)
+            or "Could not find the table" in str(e)
+            or "Could not find the 'family' column" in str(e)):
+                raise HTTPException(
+                    503, "corre migrations/011_insight_exposures.sql y "
+                         "012_analyst_scoring.sql "
+                    f"({e})")
+            raise
+        return out
+    except HTTPException:
         raise
 
 

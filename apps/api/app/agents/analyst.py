@@ -31,6 +31,12 @@ from app.mcp import tools as T
 
 N_INSIGHTS = 10
 
+FAMILIES = ("profitability", "cash_flow", "expenses", "receivables",
+            "tax", "growth", "risk", "operations")
+IMPACTS = ("high", "medium", "low")
+
+ANCHOR_METRICS = ("revenue", "profit", "cash", "estimated_tax")
+
 COMPARATIVOS = re.compile(
     r"estable|crece|creci[óo]|cae|ca[íi]da|aumenta?|disminuye|"
     r"anterior|previo|comparad|vs\.? |respecto al|frente al|"
@@ -51,6 +57,15 @@ Reglas duras:
   receivables_resolution (conteo y total de CxC). Tus insights deben cubrir
   lo que esas tarjetas NO dicen (vencidas, antigüedad, concentración,
   tendencias con base); PROHIBIDO un insight que solo repita esos totales.
+- Cada insight declara: family (una de profitability, cash_flow, expenses,
+  receivables, tax, growth, risk, operations), financial_impact
+  (high/medium/low: cuánto dinero mueve el tema) y actionability
+  (high: hay acción concreta ya; medium: vigilar o preparar; low: solo contexto).
+- Además escribes anchor_analysis: UN comentario por métrica principal
+  (revenue, profit, cash, estimated_tax). Solo interpretación cualitativa
+  con lo que viste en tools (nivel, tendencia, causa observable):
+  PROHIBIDO inventar cifras en el comentario (los números los pone el
+  sistema). Sin comparativos si hay un solo mes con datos.
 - Cada insight cita su evidencia con el nombre EXACTO de la señal del catálogo visible abajo (p. ej. {{"señal": "runway_dias"}}). PROHIBIDO inventar
   nombres de señal (`ventas[anterior]`, `ventas_totales`, `current_ratio`, `dso` y similares NO existen). Solo cita señales cuyo valor viste en una tool.
 - PROHIBIDO inventar benchmarks sectoriales, proyecciones o causas no observables en los datos. Describe lo que ves, no porqués.
@@ -69,16 +84,35 @@ def insight_schema(n: int) -> dict:
     return {
         "type": "object", "additionalProperties": False,
         "properties": {
+            "anchor_analysis": {
+                "type": "array", "minItems": 4, "maxItems": 4,
+                "items": {
+                    "type": "object", "additionalProperties": False,
+                    "properties": {
+                        "metric": {"type": "string",
+                                   "enum": ["revenue", "profit", "cash",
+                                            "estimated_tax"]},
+                        "comment": {"type": "string"},
+                    },
+                    "required": ["metric", "comment"],
+                },
+            },
             "insights": {
                 "type": "array", "minItems": n, "maxItems": n,
                 "items": {
                     "type": "object", "additionalProperties": False,
                     "properties": {
                         "kind": {"type": "string"},
+                        "family": {"type": "string",
+                                   "enum": list(FAMILIES)},
                         "severity": {"type": "string",
                                      "enum": ["info", "warning", "critical"]},
                         "titulo": {"type": "string"},
                         "detalle": {"type": "string"},
+                        "financial_impact": {"type": "string",
+                                             "enum": list(IMPACTS)},
+                        "actionability": {"type": "string",
+                                          "enum": list(IMPACTS)},
                         "evidencia": {
                             "type": "array", "minItems": 1,
                             "items": {
@@ -90,12 +124,13 @@ def insight_schema(n: int) -> dict:
                             },
                         },
                     },
-                    "required": ["kind", "severity", "titulo", "detalle",
-                                 "evidencia"],
+                    "required": ["kind", "family", "severity", "titulo",
+                                 "detalle", "financial_impact",
+                                 "actionability", "evidencia"],
                 },
             },
         },
-        "required": ["insights"],
+        "required": ["anchor_analysis", "insights"],
     }
 
 
@@ -117,6 +152,11 @@ def validar_uno(i: dict, n_meses: int, catalogo: set[str]) -> str | None:
     """
     if i.get("severity") not in ("info", "warning", "critical"):
         return f"severidad inválida: {i.get('severity')!r}"
+    if i.get("family") not in FAMILIES:
+        return f"familia inválida: {i.get('family')!r}"
+    for campo in ("financial_impact", "actionability"):
+        if i.get(campo) not in IMPACTS:
+            return f"{campo} inválido: {i.get(campo)!r}"
     if not i.get("titulo") or not i.get("detalle"):
         return "título o detalle vacío"
     ev = i.get("evidencia") or []
@@ -146,10 +186,26 @@ def _con_ids(items: list[dict], month: str, company_id: str,
                "unidad": unidades[e["señal"]]} for e in i["evidencia"]]
         out.append({
             "id": uuid.uuid4().hex[:8], "company_id": company_id,
-            "month": month, "kind": i["kind"], "severity": i["severity"],
+            "month": month, "kind": i["kind"], "family": i["family"],
+            "severity": i["severity"],
             "titulo": i["titulo"], "detalle": i["detalle"],
+            "financial_impact": i["financial_impact"],
+            "actionability": i["actionability"],
             "evidencia": ev})
     return out
+
+
+def validar_anchors(items: list[dict]) -> str | None:
+    """4 comentarios, una métrica distinta cada uno, sin vacíos."""
+    if len(items) != 4:
+        return f"anchor_analysis debe tener 4, trae {len(items)}"
+    metrics = [a.get("metric") for a in items]
+    if set(metrics) != set(ANCHOR_METRICS):
+        return f"métricas incompletas: {metrics}"
+    for a in items:
+        if not (a.get("comment") or "").strip():
+            return f"comentario vacío en {a.get('metric')}"
+    return None
 
 
 def para_disenador(guardados: list[dict]) -> list[dict]:
@@ -219,34 +275,47 @@ def run(month: str, executor=None, model: str | None = None,
         insight_schema(N_INSIGHTS), modelo)
     validos, fallidos = _partir(out.get("insights", []), month, company_id,
                                 len(meses), catalogo, valores, unidades, set())
+    mal_anchors = validar_anchors(out.get("anchor_analysis", []))
+    anchors = out.get("anchor_analysis", [])
 
-    if fallidos:
+    if fallidos or mal_anchors:
         faltan = N_INSIGHTS - len(validos)
         resumen_ok = [f"{v['kind']}: {v['titulo']}" for v in validos]
         resumen_mal = [f"{f['kind']}: {f['motivo']}" for f in fallidos]
+        if mal_anchors:
+            resumen_mal.append(f"anchor_analysis: {mal_anchors}")
         out2 = llm.chat_json(
             [{"role": "system", "content": system},
              {"role": "user", "content":
               f"Vas bien: estos {len(validos)} YA quedaron y NO los repitas "
-              f"ni regeneres: {resumen_ok}. Estos {len(fallidos)} están mal, "
-              f"cada uno con su motivo: {resumen_mal}.\n{catalogo_txt}\n"
-              f"{tabla}\nGenera EXACTAMENTE {faltan} insights NUEVOS "
-              "(kinds distintos a los válidos) que corrijan o reemplacen "
-              "los fallidos, citando señales de esa lista (sin valor)."}],
+              f"ni regeneres: {resumen_ok}. Estos están mal, cada uno con "
+              f"su motivo: {resumen_mal}.\n{catalogo_txt}\n{tabla}\nGenera "
+              f"EXACTAMENTE {faltan} insights NUEVOS (kinds distintos a los "
+              "válidos) que corrijan o reemplacen los fallidos, citando "
+              "señales de esa lista (sin valor). Además repite "
+              "anchor_analysis con los 4 comentarios "
+              f"({', '.join(ANCHOR_METRICS)}) corregidos si estaban mal o "
+              "idénticos si estaban bien."}],
             insight_schema(faltan), modelo)
         validos2, fallidos2 = _partir(
             out2.get("insights", []), month, company_id, len(meses),
             catalogo, valores, unidades, {v["kind"] for v in validos})
         validos.extend(validos2)
         fallidos = fallidos2
+        if mal_anchors:
+            mal_anchors = validar_anchors(out2.get("anchor_analysis", []))
+            anchors = out2.get("anchor_analysis", [])
 
-    if fallidos or len(validos) != N_INSIGHTS:
+    if fallidos or len(validos) != N_INSIGHTS or mal_anchors:
         motivos = [f"{f.get('kind')}: {f.get('motivo')}" for f in fallidos]
+        if mal_anchors:
+            motivos.append(f"anchor_analysis: {mal_anchors}")
         raise ValueError(f"analista incompleto tras reintento "
                          f"({len(validos)}/{N_INSIGHTS}): {motivos}")
     orden = {"critical": 0, "warning": 1, "info": 2}
     validos.sort(key=lambda i: orden[i["severity"]])  # estable: conserva
     return {"month": month, "insights": validos,  # el rankeo del modelo
+            "anchor_analysis": anchors,
             "tools_usados": [a["tool"] for a in audit],
             "truncado": truncado}
 

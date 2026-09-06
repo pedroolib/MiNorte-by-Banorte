@@ -227,7 +227,7 @@ def design(insights: list[dict], components: list[str],
     out = llm.chat_json(
         [{"role": "system", "content": system2},
          {"role": "user", "content": base + "\n\nDatos extra:\n" + gather}],
-        _cards_schema(components), modelo)
+        _cards_schema(components), modelo, strict=False)
     validas, fallidas = _partir(out.get("cards", []), components)
 
     if fallidas:
@@ -243,7 +243,8 @@ def design(insights: list[dict], components: list[str],
               f"{len(fallidas)} tarjetas NUEVAS que las reemplacen "
               "(mismo insight_id, componente y props corregidos, "
               "con la forma de props indicada arriba)."}],
-            _cards_schema(components, len(fallidas)), modelo)
+            _cards_schema(components, len(fallidas)), modelo,
+            strict=False)
         validas2, fallidas2 = _partir(out2.get("cards", []), components)
         ids_ok = {c["insight_id"] for c in validas}
         for c in validas2:

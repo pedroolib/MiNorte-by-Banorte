@@ -61,8 +61,10 @@ def test_analyst_real_sobre_seed():
     from app.mcp import tools as T
 
     out = analyst.run("2026-08", executor=T.execute, model="gpt-4o-mini")
-    assert 1 <= len(out["insights"]) <= 6
+    assert len(out["insights"]) == 10
+    assert len(out["anchor_analysis"]) == 4
     assert "get_signals" in out["tools_usados"]
     for i in out["insights"]:
         assert i["evidencia"], i["kind"]  # ninguna cifra sin cita
+        assert i["family"] in analyst.FAMILIES
     print("\nINSIGHTS:", [(i["severity"], i["titulo"]) for i in out["insights"]])

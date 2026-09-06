@@ -8,10 +8,18 @@ import app.main as main
 
 
 def _bueno(k, sev="info"):
-    return {"kind": k, "severity": sev, "titulo": f"Título {k}",
+    return {"kind": k, "family": "operations", "severity": sev,
+            "titulo": f"Título {k}",
             "detalle": f"Detalle observado de {k} este mes.",
+            "financial_impact": "low", "actionability": "low",
             "evidencia": [{"señal": "runway_dias", "valor": "4",
                            "unidad": "días"}]}
+
+
+def _anchors():
+    return {"anchor_analysis": [
+        {"metric": m, "comment": f"Comentario {m}"}
+        for m in ("revenue", "profit", "cash", "estimated_tax")]}
 
 
 def _diez():
@@ -35,7 +43,11 @@ class FakeLLM:
         n = schema["properties"]["insights"]["maxItems"]
         self.visto.setdefault("pedidos", []).append(n)
         self.visto["mensajes"] = [m["content"] for m in messages]
-        return self.respuestas.pop(0)
+        out = self.respuestas.pop(0)
+        # Los fakes viejos no traían anchors; el schema sí los exige.
+        out = dict(out)
+        out.setdefault("anchor_analysis", _anchors()["anchor_analysis"])
+        return out
 
 
 def _fake(monkeypatch, *respuestas):
