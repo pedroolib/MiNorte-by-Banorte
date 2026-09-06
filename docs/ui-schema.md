@@ -13,14 +13,31 @@ El modelo **nunca** devuelve JSX. Devuelve un JSON con `component` + `props`,
 y `components/registry.tsx` decide qué componente React renderizar.
 Si el `component` no existe en el registry, se muestra fallback, nunca crashea.
 
-## 2. Catálogo actual (`apps/web/lib/ui-schema.ts`)
+## 2. Catálogo (congelado: doc = tipos = registry = fixtures)
 
-| `component` | `props` | Quién lo emite hoy |
+| `component` | `props` | Fuente |
 |---|---|---|
-| `receivables_resolution` | `{ total_pending: number, invoices: unknown[] }` | Alerta `cuentas_por_cobrar` (`GET /api/alerts` → `payload`) |
-| `receipts_resolution` | `{ count: number, total: number }` | Alerta `sin_factura` (`GET /api/alerts` → `payload`) |
-| `loan_comparison` | `{ amount: number }` | Reservado (Consultor T8) |
-| `hiring_simulation` | `{ monthly_cost: number }` | Reservado (Consultor T8) |
+| `receivables_resolution` | `{ count: number; total: string }` | Alerta `cuentas_por_cobrar` → payload. Atajo curado del flujo de cobranza (layout fijo). |
+| `receipts_resolution` | `{ count: number; total: string }` | Alerta `sin_factura` → payload. Atajo curado del flujo de facturas (layout fijo). |
+| `action_card` | `{ eyebrow: string; title: string; body: string; value: string; action_label: string; tone?: string }` | Cualquier alerta (titulo + detalle + total). CTA genérica; las resolution son sus atajos curados. |
+| `hero_number` | `{ label: string; sublabel: string; value: string; delta?: string; tone?: string }` | Summary + signals (valor ya formateado). |
+| `multi_ring` | `{ items: { label: string; value: number }[] }` | signals (porcentajes 0–100). |
+| `bars_total` | `{ title: string; total: string; values: number[]; labels: string[] }` | Serie mensual + total. |
+| `progress_list` | `{ title: string; items: { label: string; percent: number }[] }` | Receivables por cliente / presupuesto. |
+| `donut_total` | `{ title: string; center_value: string; center_label: string; segments: { label: string; value: number }[] }` | Efectivo + CxC (o deducible/no-deducible). |
+| `entity_cluster` | `{ title: string; subtitle: string; items: { name: string }[]; action_label?: string }` | Top clientes (iniciales, sin fotos). |
+| `waterfall` | `{ title: string; bars: { label: string; value: number }[] }` | Ventas − rubros = utilidad. |
+| `insight_text` | `{ title: string; body: string; tone?: string; evidence?: string[] }` | `analyst_insights` (T8): texto + evidencia. |
+| `metric_trend` | `{ label: string; value: string; change: string; values: number[]; tone?: string }` | signals (métrica + delta + serie). Una tarjeta, N métricas. |
+| `transactions_list` | `{ items: [{ id: string; merchant: string; category: string; date: string; amount: string; type: "ingreso" \| "egreso" }] }` | Movimientos (drill-down/evidencia). |
+| `timeline_list` | `{ items: [{ id: string; customer_name: string; due_date: string \| null; issued_at: string; amount_pending: string; status: string }] }` | CxC ordenadas: ¿a quién cobro ahora? |
+| `tax_summary` | `{ isr_estimado: string; iva_neto: string; pct_deducible: number }` | Trío fiscal (ISR sin IVA al lado engaña). |
+| `time_series` | `{ title: string; points: { label: string; income: number; expenses: number }[]; series: "income" \| "expenses" \| "both"; period_label?: string }` | `DashboardDailyPoint[]`. Sin selectores en v1 (el compositor pide otra tarjeta con distintas props). |
+| `banorte_best_loans` | `{ amount: string; options: { id: string; nombre: string; tasa_anual: string; pago_mensual: string; costo_total: string; plazo_meses: number }[]; top_ids: string[]; rationale?: string }` | Tool `banorte_compare_loans` (opciones) + **top_ids y rationale los elige el Analista**. |
+
+(Totales viajan como string porque son `Decimal` serializados; convertir
+con `Number()` antes de formatear. `/cards` = galería con fixtures de cada
+entrada; `/` = vista final curada. La galería NO es el UI final.)
 
 ## 3. Payloads reales de ejemplo (datos actuales del seed)
 

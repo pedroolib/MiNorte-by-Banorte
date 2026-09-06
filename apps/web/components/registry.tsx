@@ -1,6 +1,23 @@
 "use client";
 
 import type { UISchema } from "@/lib/ui-schema";
+import {
+  ActionCard,
+  BanorteBestLoans,
+  BarsTotal,
+  DonutTotal,
+  EntityCluster,
+  HeroNumber,
+  InsightText,
+  MetricTrend,
+  MultiRing,
+  ProgressList,
+  TaxSummary,
+  TimeSeries,
+  TimelineList,
+  TransactionsList,
+  Waterfall,
+} from "./cards";
 
 /**
  * Component Registry (spec #22) — T0 mínimo.
@@ -8,23 +25,17 @@ import type { UISchema } from "@/lib/ui-schema";
  * Nada de JSX generado por LLM.
  */
 
-function LoanComparison({ amount }: { amount: number }) {
-  return (
-    <div className="rounded-xl border p-3 text-sm">
-      Comparador de crédito por ${amount.toLocaleString("es-MX")} (llega en T8).
-    </div>
-  );
-}
-
 function ReceivablesResolution({
-  total_pending,
+  count,
+  total,
 }: {
-  total_pending: number;
-  invoices: unknown[];
+  count: number;
+  total: string;
 }) {
   return (
     <div className="rounded-xl border p-3 text-sm">
-      Tienes ${total_pending.toLocaleString("es-MX")} pendientes de cobro.{" "}
+      {count} facturas pendientes de cobro (total $
+      {Number(total).toLocaleString("es-MX")}).{" "}
       <button className="rounded-lg bg-black px-3 py-1 text-white">
         Resolver
       </button>
@@ -37,11 +48,12 @@ function ReceiptsResolution({
   total,
 }: {
   count: number;
-  total: number;
+  total: string;
 }) {
   return (
     <div className="rounded-xl border p-3 text-sm">
-      {count} gastos necesitan factura (total ${total.toLocaleString("es-MX")}).{" "}
+      {count} gastos necesitan factura (total $
+      {Number(total).toLocaleString("es-MX")}).{" "}
       <button className="rounded-lg bg-black px-3 py-1 text-white">
         Resolver
       </button>
@@ -49,20 +61,24 @@ function ReceiptsResolution({
   );
 }
 
-function HiringSimulation({ monthly_cost }: { monthly_cost: number }) {
-  return (
-    <div className="rounded-xl border p-3 text-sm">
-      Simulación de contratación por ${monthly_cost.toLocaleString("es-MX")}/mes
-      (llega en T8).
-    </div>
-  );
-}
-
 const REGISTRY: Record<UISchema["component"], React.FC<any>> = {
-  loan_comparison: LoanComparison,
   receivables_resolution: ReceivablesResolution,
   receipts_resolution: ReceiptsResolution,
-  hiring_simulation: HiringSimulation,
+  hero_number: HeroNumber,
+  multi_ring: MultiRing,
+  bars_total: BarsTotal,
+  progress_list: ProgressList,
+  donut_total: DonutTotal,
+  entity_cluster: EntityCluster,
+  action_card: ActionCard,
+  waterfall: Waterfall,
+  insight_text: InsightText,
+  time_series: TimeSeries,
+  banorte_best_loans: BanorteBestLoans,
+  metric_trend: MetricTrend,
+  transactions_list: TransactionsList,
+  timeline_list: TimelineList,
+  tax_summary: TaxSummary,
 };
 
 export function DynamicUI({ schema }: { schema: UISchema }) {
