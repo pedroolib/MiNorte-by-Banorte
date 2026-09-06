@@ -47,6 +47,20 @@ pilot-csv:
 	  --out "$(PILOTO_DIR)/transactions_jul2026.csv" \
 	  --expect "$(PILOTO_DIR)/esperado.json"
 
+pilot-tdc-csv:
+	uv run --project apps/api python scripts/build_pilot_tdc.py \
+	  --xlsx "$(PILOTO_DIR)/BBVA TDC 6159 MOV JULIO 2026.xlsx" \
+	  --cuenta acc_tdc_001 --company $(PILOTO_COMPANY) --year 2026 --month 7 \
+	  --chequera-csv "$(PILOTO_DIR)/transactions_jul2026.csv" \
+	  --out "$(PILOTO_DIR)/transactions_tdc_jul2026.csv"
+
+pilot-tdc-load:
+	uv run --project apps/api python scripts/load_pilot_tdc.py \
+	  --csv "$(PILOTO_DIR)/transactions_tdc_jul2026.csv" \
+	  --company $(PILOTO_COMPANY) --cuenta acc_tdc_001 \
+	  --alias "TDC BBVA 6159" \
+	  --expect-compras 106118.85 --expect-abonos 114860.63
+
 pilot-cfdis:
 	uv run --project apps/api python scripts/build_pilot_cfdis.py \
 	  --csv "$(PILOTO_DIR)/transactions_jul2026.csv" \

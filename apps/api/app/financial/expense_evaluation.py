@@ -224,10 +224,11 @@ def evaluar_gasto(txns: list[Transaction], expense_type: str,
     horizonte = horizon_months or max(12, financing_months)
     horizonte = max(1, min(int(horizonte), 60))
 
-    # 3. baseline bancaria explícita (consistente con dashboard)
+    # 3. baseline operativa explícita (sin traspasos internos, igual que
+    # dashboard/snapshots; el fondeo interno se reporta aparte, no como venta)
     fm = [t for t in txns if (t.date.year, t.date.month) == (anio, mes)]
-    dep = sum((t.amount for t in fm if t.type == "ingreso"), CERO)
-    ret = sum((t.amount for t in fm if t.type == "egreso"), CERO)
+    dep = sum((t.amount for t in fm if t.type == "ingreso" and not t.es_interno), CERO)
+    ret = sum((t.amount for t in fm if t.type == "egreso" and not t.es_interno), CERO)
     utilidad_bank = dep - ret
     burn = -min((dep - ret), CERO)
     ordenados = sorted(txns, key=lambda t: (t.date, t.id))
@@ -235,7 +236,7 @@ def evaluar_gasto(txns: list[Transaction], expense_type: str,
     dep_int = sum((t.amount for t in fm if t.type == "ingreso" and t.es_interno), CERO)
     fondeo = (dep_int / dep) if dep > 0 else CERO
     inc_op = en.income_statement(txns, anio, mes)["utilidad"]
-    baseline = {"fuente": "caja_bancaria", "utilidad": utilidad_bank,
+    baseline = {"fuente": "caja_operativa", "utilidad": utilidad_bank,
                 "burn_mensual": burn, "efectivo": efectivo,
                 "utilidad_operativa": inc_op, "fondeo_interno_ratio": fondeo}
     if fondeo > Decimal("0.5"):
