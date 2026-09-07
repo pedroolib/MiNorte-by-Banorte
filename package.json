@@ -5,5 +5,8 @@
     "dev:web": "pnpm --dir apps/web dev",
     "build:web": "pnpm --dir apps/web build",
     "typecheck:web": "pnpm --dir apps/web typecheck"
+  },
+  "devDependencies": {
+    "shadcn": "^4.21.0"
   }
 }

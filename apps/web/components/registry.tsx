@@ -12,6 +12,8 @@ import {
   MetricTrend,
   MultiRing,
   ProgressList,
+  ReceiptsResolution,
+  ReceivablesResolution,
   TaxSummary,
   TimeSeries,
   TimelineList,
@@ -24,42 +26,6 @@ import {
  * Para agregar un diseño nuevo: crea el componente y regístralo aquí.
  * Nada de JSX generado por LLM.
  */
-
-function ReceivablesResolution({
-  count,
-  total,
-}: {
-  count: number;
-  total: string;
-}) {
-  return (
-    <div className="rounded-xl border p-3 text-sm">
-      {count} facturas pendientes de cobro (total $
-      {Number(total).toLocaleString("es-MX")}).{" "}
-      <button className="rounded-lg bg-black px-3 py-1 text-white">
-        Resolver
-      </button>
-    </div>
-  );
-}
-
-function ReceiptsResolution({
-  count,
-  total,
-}: {
-  count: number;
-  total: string;
-}) {
-  return (
-    <div className="rounded-xl border p-3 text-sm">
-      {count} gastos necesitan factura (total $
-      {Number(total).toLocaleString("es-MX")}).{" "}
-      <button className="rounded-lg bg-black px-3 py-1 text-white">
-        Resolver
-      </button>
-    </div>
-  );
-}
 
 const REGISTRY: Record<UISchema["component"], React.FC<any>> = {
   receivables_resolution: ReceivablesResolution,
