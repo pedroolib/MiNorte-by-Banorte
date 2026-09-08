@@ -23,6 +23,11 @@ RESERVED = ("tax_summary", "receipts_resolution", "receivables_resolution")
 #: no es gratis (si el lote trae más, el excedente va al reintento).
 MAX_TEXT = 2
 
+#: Iconos permitidos en action_card.icon (panel visual lateral).
+#: El frontend mapea cada nombre a un icono Lucide; otro valor va al reintento.
+ACTION_ICONS = ("receipt", "wallet", "flame", "piggy-bank",
+                "trending-down", "file-warning", "landmark", "bell")
+
 #: Guía por defecto kind -> componente (el modelo puede desviarse con
 #: justificación en rationale).
 KIND_HINTS = (
@@ -56,6 +61,10 @@ Reglas duras:
   solo texto/interpretación sin número -> insight_text.
 - Los componentes visuales aceptan footnote opcional para la explicación
   (1 frase, con cifras ya vistas): prefiere número + footnote sobre texto plano.
+- action_card acepta icon opcional (panel visual lateral): elige uno de
+  receipt, wallet, flame, piggy-bank, trending-down, file-warning,
+  landmark, bell según la alerta (gasto sin factura -> receipt,
+  CxC -> wallet, riesgo de caja -> flame, impuestos -> landmark).
 - Máximo 3 tarjetas insight_text por diseño: si necesitas más texto,
   es señal de que algún insight pide un componente visual.
 - PROHIBIDO elegir tax_summary, receipts_resolution o receivables_resolution:
@@ -113,8 +122,7 @@ PROPS_SCHEMAS: dict[str, dict] = {
     "entity_cluster": {"title": _STR, "subtitle": _STR,
                        "items": [{"name": _STR}]},
     "action_card": {"eyebrow": _STR, "title": _STR, "body": _STR,
-                    "value": _STR, "action_label": _STR},
-    "waterfall": {"title": _STR,
+                    "value": _STR, "action_label": _STR},    "waterfall": {"title": _STR,
                   "bars": [{"label": _STR, "value": _NUM}]},
     "insight_text": {"title": _STR, "body": _STR},
     "time_series": {"title": _STR,
@@ -217,6 +225,11 @@ def validate_choice(choice: dict, components: list[str]) -> list[str]:
         mal = _checa(props[campo], sub, f"{comp}.{campo}")
         if mal:
             errores.append(mal)
+    if comp == "action_card" and "icon" in props:
+        if props["icon"] not in ACTION_ICONS:
+            errores.append(f"action_card.icon debe ser uno de "
+                           f"{list(ACTION_ICONS)}, llegó "
+                           f"{props['icon']!r}")
     if not choice.get("insight_id"):
         errores.append("falta insight_id (trazabilidad)")
     return errores

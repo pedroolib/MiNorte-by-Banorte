@@ -6,8 +6,13 @@ import {
   ArrowDownRight,
   ArrowUpRight,
   BadgeCheck,
+  Bell,
+  FileWarning,
+  Flame,
   Landmark,
+  PiggyBank,
   ReceiptText,
+  TrendingDown,
   Wallet,
 } from "lucide-react";
 import {
@@ -436,6 +441,7 @@ export function ActionCard({
   value,
   action_label,
   tone = "neutral",
+  icon,
 }: {
   eyebrow: string;
   title: string;
@@ -443,22 +449,42 @@ export function ActionCard({
   value: string;
   action_label: string;
   tone?: "urgent" | "watch" | "neutral";
+  icon?: string;
 }) {
+  const visuals: Record<string, React.ReactNode> = {
+    receipt: <ReceiptText className="size-12" />,
+    wallet: <Wallet className="size-12" />,
+    flame: <Flame className="size-12" />,
+    "piggy-bank": <PiggyBank className="size-12" />,
+    "trending-down": <TrendingDown className="size-12" />,
+    "file-warning": <FileWarning className="size-12" />,
+    landmark: <Landmark className="size-12" />,
+    bell: <Bell className="size-12" />,
+  };
+  const visual = icon ? visuals[icon] : null;
   return (
     <Card className="p-0">
       <Alert variant={tone === "urgent" ? "destructive" : "default"} className="border-0">
-        {tone === "urgent" || tone === "watch" ? <AlertTriangle /> : <BadgeCheck />}
-        <AlertTitle className="flex items-center gap-2">
-          <span className="text-[10px] font-bold uppercase tracking-widest opacity-70">
-            {eyebrow}
-          </span>
-        </AlertTitle>
-        <AlertDescription>
-          <span className="block text-lg font-bold text-foreground">{title}</span>
-          <span className="block text-3xl font-extrabold text-foreground">{value}</span>
-          <span className="mt-1 block">{body}</span>
-          <Button className="mt-3 w-full">{action_label}</Button>
-        </AlertDescription>
+        <div className="col-start-2 flex items-start gap-4">
+          <div className="min-w-0 flex-1">
+            <AlertTitle className="flex items-center gap-2">
+              <span className="text-[10px] font-bold uppercase tracking-widest opacity-70">
+                {eyebrow}
+              </span>
+            </AlertTitle>
+            <AlertDescription>
+              <span className="block text-lg font-bold text-foreground">{title}</span>
+              <span className="block text-3xl font-extrabold text-foreground">{value}</span>
+              <span className="mt-1 block">{body}</span>
+            </AlertDescription>
+          </div>
+          {visual ? (
+            <span className="grid size-24 shrink-0 place-items-center rounded-xl bg-primary/10 text-primary">
+              {visual}
+            </span>
+          ) : null}
+        </div>
+        <Button className="col-start-2 mt-3 w-full">{action_label}</Button>
       </Alert>
     </Card>
   );
@@ -549,7 +575,7 @@ export function BanorteBestLoans({
           return (
             <div
               key={o.id}
-              className={`rounded-lg border p-3 ${top ? "border-primary bg-primary/5" : ""}`}
+              className={`cursor-pointer rounded-lg border p-3 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md ${top ? "border-primary bg-primary/5" : ""}`}
             >
               <div className="flex items-center justify-between text-sm">
                 <strong>{o.nombre}</strong>
@@ -675,26 +701,52 @@ export function TimelineList({
   items: { id: string; customer_name: string; due_date: string | null; issued_at: string; amount_pending: string; status: string }[];
 }) {
   if (!items.length) return <Empty what="cobros próximos" />;
+  const now = new Date();
+  const diasPara = (iso: string | null) =>
+    iso ? Math.ceil((new Date(iso).getTime() - now.getTime()) / 86400000) : null;
+  const colorDot = (d: number | null) =>
+    d === null || d > 14
+      ? "bg-emerald-500"
+      : d > 7
+        ? "bg-amber-400"
+        : "bg-destructive";
+  const etiqueta = (d: number | null) =>
+    d === null
+      ? null
+      : d < 0
+        ? `Vencida hace ${Math.abs(d)} d`
+        : d === 0
+          ? "Vence hoy"
+          : `Vence en ${d} d`;
   return (
     <Card>
       <CardHeader className="pb-2">
         <CardTitle className="text-sm">Facturas por cobrar</CardTitle>
         <CardDescription>Próximos cobros</CardDescription>
       </CardHeader>
-      <CardContent className="space-y-3">
-        {items.slice(0, 4).map((item) => (
-          <div key={item.id} className="flex items-center gap-2 text-sm">
-            <div className="min-w-0 flex-1">
-              <p className="truncate font-medium">{item.customer_name || "Cliente"}</p>
-              <p className="text-xs text-muted-foreground">
-                {item.due_date ? `Vence ${item.due_date.slice(0, 10)}` : `Emitida ${item.issued_at.slice(0, 10)}`}
-              </p>
-            </div>
-            <Badge variant={item.status === "overdue" ? "destructive" : "success"}>
-              {money(item.amount_pending)}
-            </Badge>
-          </div>
-        ))}
+      <CardContent>
+        <ol className="relative space-y-4 border-l border-border pl-0">
+          {items.slice(0, 4).map((item) => {
+            const d = diasPara(item.due_date);
+            return (
+              <li key={item.id} className="relative flex items-start gap-3 pl-5">
+                <span
+                  className={`absolute top-1 -left-[5px] size-2.5 rounded-full ring-4 ring-background ${colorDot(d)}`}
+                />
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium">{item.customer_name || "Cliente"}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {item.due_date ? `Vence ${item.due_date.slice(0, 10)}` : `Emitida ${item.issued_at.slice(0, 10)}`}
+                    {etiqueta(d) ? ` · ${etiqueta(d)}` : ""}
+                  </p>
+                </div>
+                <Badge variant={d !== null && d <= 7 ? "destructive" : "success"}>
+                  {money(item.amount_pending)}
+                </Badge>
+              </li>
+            );
+          })}
+        </ol>
       </CardContent>
     </Card>
   );

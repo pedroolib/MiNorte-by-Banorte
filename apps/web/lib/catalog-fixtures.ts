@@ -179,6 +179,7 @@ export const CATALOG: CatalogEntry[] = [
       value: "$2,123.00",
       action_label: "Resolver",
       tone: "urgent",
+      icon: "receipt",
     },
     title: "Tarjeta de acción",
     source: "Alerta sin_factura (titulo + detalle + total)",
