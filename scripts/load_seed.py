@@ -99,9 +99,12 @@ def main() -> None:
         raise
 
     # 3. verificación: conteo + netos mensuales desde la DB
-    assert repo.count(sb, company_id) == len(txns), "conteo distinto al CSV"
+    # (>= porque el piloto carga por meses acumulativos; el neto por mes
+    # es la guarda exacta)
+    assert repo.count(sb, company_id) >= len(txns), "faltan txns en DB"
     got = repo.fetch_ordered(sb, company_id)
-    assert len(got) == len(txns)
+    en_db = {t.id for t in got}
+    assert all(t.id in en_db for t in txns), "faltan ids del CSV en DB"
     if args.expect:
         esperado = {(int(k[:4]), int(k[5:7])): v
                     for k, v in json.loads(Path(args.expect).read_text())["neto"].items()}
@@ -128,8 +131,9 @@ def main() -> None:
     n_cfdi = cfdi_repo.upsert_cfdis(sb, cfdis)
     n_emi = sum(1 for c in cfdis if c.tipo == "emitido")
     print(f"upsert cfdis={n_cfdi} (emitidos={n_emi} recibidos={n_cfdi - n_emi})")
-    assert cfdi_repo.count(sb, company_id, "emitido") == n_emi
-    assert cfdi_repo.count(sb, company_id, "recibido") == n_cfdi - n_emi
+    # >= por cargas piloto acumulativas (julio + febrero conviven)
+    assert cfdi_repo.count(sb, company_id, "emitido") >= n_emi
+    assert cfdi_repo.count(sb, company_id, "recibido") >= n_cfdi - n_emi
 
     # 5. directorio esqueleto (clave RFC+nombre: XAXX compartido en piloto).
     # Sin email salvo override seed/private/contacts.json (PII local).
