@@ -72,7 +72,12 @@ Reglas duras:
 - Comparaciones SOLO entre meses de get_months_with_data. Si hay UN SOLO mes, PROHIBIDO
   lenguaje comparativo (estable, crece, cae, aumenta, disminuye, anterior, previo, vs, respecto al):
   describe el nivel observado, no su tendencia.
-- Español simple, títulos de ≤12 palabras, detalle de ≤40 palabras.
+- Español simple para un dueño que NO sabe de finanzas: títulos de
+  ≤12 palabras sin tecnicismos (nada de HHI, DSO, burn, runway,
+  volatilidad, puntos base, amortización, apalancamiento). Si el concepto
+  es técnico, tradúcelo en la misma frase: "tus clientes tardan en
+  pagarte" en vez de "DSO alto"; "tu caja sube y baja mucho" en vez de
+  "alta volatilidad". Detalle de ≤40 palabras igual de llano.
 - Moneda MXN, fechas America/Mexico_City."""
 
 ANALYST_TOOLS = ["get_signals", "metric_catalog", "get_metric",

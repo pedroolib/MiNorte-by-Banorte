@@ -120,6 +120,53 @@ function toneBadge(
   return "secondary";
 }
 
+/* ---------------- financial_anchor ---------------- */
+
+export function FinancialAnchor({
+  metric,
+  label,
+  value,
+  trend,
+  analyst_comment,
+}: {
+  metric: string;
+  label: string;
+  value: number | string | null;
+  trend: { direction: "up" | "down" | "flat"; percentage: number } | null;
+  analyst_comment: string;
+}) {
+  const trendBadge =
+    !trend || metric === "estimated_tax" ? null : (
+      <Badge variant={trend.direction === "up" ? "success" : trend.direction === "down" ? "destructive" : "secondary"}>
+        {trend.direction === "up" ? (
+          <ArrowUpRight className="size-3" />
+        ) : trend.direction === "down" ? (
+          <ArrowDownRight className="size-3" />
+        ) : null}
+        {trend.direction === "flat" ? "±" : ""}
+        {trend.percentage}%
+      </Badge>
+    );
+  return (
+    <Card data-metric={metric}>
+      <CardHeader className="pb-2">
+        <div className="flex items-center justify-between gap-2">
+          <CardTitle className="text-sm">{label}</CardTitle>
+          {trendBadge}
+        </div>
+      </CardHeader>
+      <CardContent>
+        <p className="text-3xl font-bold tracking-tight">
+          {value === null || value === undefined ? "—" : typeof value === "number" ? money(value) : value}
+        </p>
+        {analyst_comment ? (
+          <p className="mt-2 text-xs leading-relaxed text-muted-foreground">{analyst_comment}</p>
+        ) : null}
+      </CardContent>
+    </Card>
+  );
+}
+
 /* ---------------- hero_number ---------------- */
 
 export function HeroNumber({

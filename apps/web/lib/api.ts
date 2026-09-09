@@ -7,6 +7,7 @@ import type {
   DashboardData,
   DraftItem,
   FinancialSummary,
+  GenDashboard,
   MatchItem,
   ProfileSugerencia,
   ReceivableItem,
@@ -109,3 +110,6 @@ export const saveProfile = (perfil: Partial<CompanyProfile>) =>
 
 export const fetchSugerencia = () =>
   get<ProfileSugerencia>("/api/company/profile/sugerencia");
+
+export const fetchGenDashboard = () =>
+  get<GenDashboard>("/api/dashboard/gen");

@@ -7,6 +7,7 @@ import {
   BarsTotal,
   DonutTotal,
   EntityCluster,
+  FinancialAnchor,
   HeroNumber,
   InsightText,
   MetricTrend,
@@ -28,6 +29,7 @@ import {
  */
 
 const REGISTRY: Record<UISchema["component"], React.FC<any>> = {
+  financial_anchor: FinancialAnchor,
   receivables_resolution: ReceivablesResolution,
   receipts_resolution: ReceiptsResolution,
   hero_number: HeroNumber,
