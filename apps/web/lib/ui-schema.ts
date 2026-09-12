@@ -54,6 +54,7 @@ export type UISchema =
         value: string;
         action_label: string;
         tone?: string;
+        icon?: string;
       };
     }
   | {

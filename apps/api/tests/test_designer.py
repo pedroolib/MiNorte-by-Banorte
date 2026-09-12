@@ -213,3 +213,20 @@ def test_uno_a_uno_lo_faltante_va_a_reintento(monkeypatch):
                    ["hero_number", "insight_text"])
     assert [c["insight_id"] for c in out["cards"]] == ["a1", "a2"]
     assert fake.visto["pedidos"] == [None, 1]
+
+
+def test_action_card_icon_allowlist():
+    import app.agents.designer as G
+    base = {"insight_id": "a1", "component": "action_card",
+            "rationale": "x"}
+    ok = dict(base, props={"eyebrow": "E", "title": "T", "body": "B",
+                           "value": "1", "action_label": "Ir",
+                           "icon": "receipt"})
+    assert G.validate_choice(ok, ["action_card"]) == []
+    sin = dict(base, props={"eyebrow": "E", "title": "T", "body": "B",
+                            "value": "1", "action_label": "Ir"})
+    assert G.validate_choice(sin, ["action_card"]) == []  # opcional
+    mal = dict(base, props={"eyebrow": "E", "title": "T", "body": "B",
+                            "value": "1", "action_label": "Ir",
+                            "icon": "cohete"})
+    assert any("icon" in e for e in G.validate_choice(mal, ["action_card"]))

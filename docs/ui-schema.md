@@ -19,7 +19,7 @@ Si el `component` no existe en el registry, se muestra fallback, nunca crashea.
 |---|---|---|
 | `receivables_resolution` | `{ count: number; total: string }` | Alerta `cuentas_por_cobrar` → payload. Atajo curado del flujo de cobranza (layout fijo). |
 | `receipts_resolution` | `{ count: number; total: string }` | Alerta `sin_factura` → payload. Atajo curado del flujo de facturas (layout fijo). |
-| `action_card` | `{ eyebrow: string; title: string; body: string; value: string; action_label: string; tone?: string }` | Cualquier alerta (titulo + detalle + total). CTA genérica; las resolution son sus atajos curados. |
+| `action_card` | `{ eyebrow: string; title: string; body: string; value: string; action_label: string; tone?: string; icon?: string }` | Cualquier alerta (titulo + detalle + total). CTA genérica; las resolution son sus atajos curados. `icon` (receipt, wallet, flame, piggy-bank, trending-down, file-warning, landmark, bell) pinta el panel visual lateral; lo elige el Diseñador de la allowlist. |
 | `hero_number` | `{ label: string; sublabel: string; value: string; delta?: string; tone?: string }` | Summary + signals (valor ya formateado). |
 | `multi_ring` | `{ items: { label: string; value: number }[]; footnote?: string }` | signals (porcentajes 0–100). |
 | `bars_total` | `{ title: string; total: string; values: number[]; labels: string[]; footnote?: string }` | Serie mensual + total. |
