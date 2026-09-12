@@ -4,7 +4,7 @@ import { Providers } from "./providers";
 
 export const metadata: Metadata = {
   title: "MiNorte by Banorte",
-  description: "Tu equipo financiero de IA — T0 esqueleto",
+  description: "Tu centro financiero inteligente de Banorte",
 };
 
 export default function RootLayout({
@@ -13,8 +13,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="es">
-      <body className="min-h-screen bg-neutral-50 text-neutral-900">
+    <html lang="es" suppressHydrationWarning>
+      <body className="min-h-screen bg-background text-foreground antialiased">
         <Providers>{children}</Providers>
       </body>
     </html>
