@@ -1,10 +1,9 @@
-import Dashboard from "./cards/dashboard";
+import GenDashboard from "./gen-dashboard";
 
 /**
- * `/` — vista final curada (hoy: el dashboard con selección de hoy,
- * filtros y prioridades). Renderiza vía componentes registrados;
- * a futuro la IA elegirá el subconjunto (spec #22).
+ * `/` — dashboard generativo (Composition Engine).
+ * Lo elige todo el pipeline Analista → Diseñador → Composición.
  */
 export default function Page() {
-  return <Dashboard />;
+  return <GenDashboard />;
 }

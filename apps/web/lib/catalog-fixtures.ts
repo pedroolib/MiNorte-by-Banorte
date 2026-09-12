@@ -16,6 +16,18 @@ export interface CatalogEntry {
  */
 export const CATALOG: CatalogEntry[] = [
   {
+    component: "financial_anchor",
+    props: {
+      metric: "revenue",
+      label: "Ventas",
+      value: 524769.98,
+      trend: null,
+      analyst_comment: "Los cobros del taller están distribuidos de forma desigual entre los clientes que pagaron en julio.",
+    },
+    title: "Ancla financiera",
+    source: "GET /api/dashboard/gen (anchors[0], piloto julio)",
+  },
+  {
     component: "receivables_resolution",
     props: { count: 5, total: "76550.00" },
     title: "Cuentas por cobrar",

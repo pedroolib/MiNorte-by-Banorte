@@ -87,7 +87,8 @@ abstraído (`log`|`resend`). `/cobranza` funcional sin diseño.
    `dashboard_compositions` (migraciones 011/012 — aplicar en SQL Editor).
    Listo para `DynamicUI` (falta `financial_anchor` en registry web).
    Diseñador ✅ endurecido: `PROPS_SCHEMAS` espejo de `ui-schema.ts`
-   (17 componentes, listas no vacías, extras permitidos), reintento
+   (18 componentes incl. financial_anchor, listas no vacías, extras
+   permitidos), footnote ≤140 chars y sin tecnicismos (HHI, DSO, burn…),
    combinado con schemas de props en el prompt; si persiste, `LLMError`
    sin parcial. Variedad: mapa kind→componente + `footnote?` en 8
    componentes visuales (tipos + render + fixtures + doc) + tope 2

@@ -8,6 +8,16 @@
 
 export type UISchema =
   | {
+      component: "financial_anchor";
+      props: {
+        metric: string;
+        label: string;
+        value: number | string | null;
+        trend: { direction: "up" | "down" | "flat"; percentage: number } | null;
+        analyst_comment: string;
+      };
+    }
+  | {
       component: "receivables_resolution";
       props: { count: number; total: string };
     }

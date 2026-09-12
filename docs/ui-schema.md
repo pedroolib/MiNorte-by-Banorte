@@ -17,6 +17,7 @@ Si el `component` no existe en el registry, se muestra fallback, nunca crashea.
 
 | `component` | `props` | Fuente |
 |---|---|---|
+| `financial_anchor` | `{ metric: string; label: string; value: number \| string \| null; trend: { direction: "up" \| "down" \| "flat"; percentage: number } \| null; analyst_comment: string }` | `GET /api/dashboard/gen` → `anchors[]` (número del motor + comentario del Analista). |
 | `receivables_resolution` | `{ count: number; total: string }` | Alerta `cuentas_por_cobrar` → payload. Atajo curado del flujo de cobranza (layout fijo). |
 | `receipts_resolution` | `{ count: number; total: string }` | Alerta `sin_factura` → payload. Atajo curado del flujo de facturas (layout fijo). |
 | `action_card` | `{ eyebrow: string; title: string; body: string; value: string; action_label: string; tone?: string; icon?: string }` | Cualquier alerta (titulo + detalle + total). CTA genérica; las resolution son sus atajos curados. `icon` (receipt, wallet, flame, piggy-bank, trending-down, file-warning, landmark, bell) pinta el panel visual lateral; lo elige el Diseñador de la allowlist. |
@@ -159,11 +160,8 @@ Cada anchor trae número del motor + comentario del Analista:
 (efectivo), `estimated_tax` (isr_estimado). `value` es número o null.
 `trend` es `{"direction": "up"|"down"|"flat", "percentage": 8.0}` calculado
 en código mes-vs-mes, o `null` honesto si no hay mes previo (piloto: 1 mes).
-**TODO frontend**: componente `financial_anchor` aún no existe en tipos,
-registry ni fixtures — crearlo con label + valor grande + trend (chip) +
-comentario como subtexto. Ojo: NO usar fila de tabla `| ... |` para
-documentarlo aquí hasta que entre al catálogo congelado (el test
-anti-drift exige doc = tipos = registry = fixtures).
+Se renderiza con el componente `financial_anchor` del catálogo (label +
+valor grande + `Badge` de trend + comentario como subtexto).
 
 ### 6.2 Actions (0–3) y discovery (2–5)
 
@@ -193,7 +191,9 @@ tarjetas vacías.
 * Hecho (T8): Analista (10 insights + anchors con evidencia), Diseñador
   (1:1 con validación y reintento), Composition Engine
   (`GET /api/dashboard/gen`), Consultor (`/chat`), cobranza (T9).
-* Pendiente frontend: página del dashboard contra `/api/dashboard/gen`
-  con `DynamicUI` + componente `financial_anchor` (tipos + registry +
-  fixtures + doc en tabla para entrar al catálogo congelado).
+* Pendiente frontend: selector de semana/mes en la UI (hoy siempre semana
+  actual) + auth/RLS + deploy + más meses de datos del piloto.
+* Hecho frontend: `/` renderiza `GET /api/dashboard/gen` con `DynamicUI`
+  (anchors + acciones + discovery + summary, sin filtros); `financial_anchor`
+  en tipos + registry + fixtures + esta tabla (catálogo: 18).
 * Pendiente general: auth/RLS, deploy, más meses de datos del piloto.

@@ -175,3 +175,28 @@ export interface ChatResponse {
   tools_usados: string[];
   truncado: boolean;
 }
+
+/** Dashboard generativo (Composition Engine). JSON listo para DynamicUI. */
+export interface GenAnchor {
+  metric: string;
+  label: string;
+  value: number | string | null;
+  trend: { direction: "up" | "down" | "flat"; percentage: number } | null;
+  analyst_comment: string;
+}
+
+export interface GenCard {
+  insight_id: string;
+  component: string;
+  props: Record<string, unknown>;
+  rationale: string;
+}
+
+export interface GenDashboard {
+  month: string;
+  week_id: string;
+  anchors: GenAnchor[];
+  actions: GenCard[];
+  discovery: GenCard[];
+  summary: string;
+}

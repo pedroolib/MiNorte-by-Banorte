@@ -47,7 +47,7 @@ def test_props_schemas_cubren_catalogo_congelado():
     componentes = re.findall(r'component: "([a-z_]+)"', ts)
     assert sorted(D.PROPS_SCHEMAS) == sorted(set(componentes)), (
         set(componentes) ^ set(D.PROPS_SCHEMAS))
-    assert len(D.PROPS_SCHEMAS) == 17
+    assert len(D.PROPS_SCHEMAS) == 18
 
 
 class FakeLLM:
@@ -230,3 +230,24 @@ def test_action_card_icon_allowlist():
                             "value": "1", "action_label": "Ir",
                             "icon": "cohete"})
     assert any("icon" in e for e in G.validate_choice(mal, ["action_card"]))
+
+
+def test_footnote_llano_y_corto():
+    import app.agents.designer as G
+    base = {"insight_id": "a1", "component": "donut_total",
+            "rationale": "x"}
+    bueno = dict(base, props={"title": "T", "center_value": "1",
+                              "center_label": "C",
+                              "segments": [{"label": "L", "value": 1}],
+                              "footnote": "Casi todo está por cobrar, no en caja."})
+    assert G.validate_choice(bueno, ["donut_total"]) == []
+    largo = dict(base, props={"title": "T", "center_value": "1",
+                              "center_label": "C",
+                              "segments": [{"label": "L", "value": 1}],
+                              "footnote": "x" * 141})
+    assert any("140" in e for e in G.validate_choice(largo, ["donut_total"]))
+    jerga = dict(base, props={"title": "T", "center_value": "1",
+                              "center_label": "C",
+                              "segments": [{"label": "L", "value": 1}],
+                              "footnote": "El HHI muestra volatilidad alta."})
+    assert any("tecnicismos" in e for e in G.validate_choice(jerga, ["donut_total"]))

@@ -9,6 +9,8 @@ con fallback final a insight_text.
 
 from __future__ import annotations
 
+import re
+
 from app.agents import llm
 from app.config import get_settings
 from app.mcp import tools as T
@@ -22,6 +24,13 @@ RESERVED = ("tax_summary", "receipts_resolution", "receivables_resolution")
 #: Máximo de tarjetas insight_text por diseño: el fallback existe pero
 #: no es gratis (si el lote trae más, el excedente va al reintento).
 MAX_TEXT = 2
+
+#: Footnote para dueños no financieros: corto y sin tecnicismos.
+MAX_FOOTNOTE = 140
+JERGA = re.compile(
+    r"\bHHI\b|\bDSO\b|\bburn\b|\brunway\b|\bvolatilidad\b|"
+    r"puntos base|basis|amortización|apalancamiento|devengo|ebitda",
+    re.IGNORECASE)
 
 #: Iconos permitidos en action_card.icon (panel visual lateral).
 #: El frontend mapea cada nombre a un icono Lucide; otro valor va al reintento.
@@ -61,6 +70,14 @@ Reglas duras:
   solo texto/interpretación sin número -> insight_text.
 - Los componentes visuales aceptan footnote opcional para la explicación
   (1 frase, con cifras ya vistas): prefiere número + footnote sobre texto plano.
+- El footnote lo lee un dueño que NO sabe de finanzas: español simple,
+  máximo 140 caracteres, cero tecnicismos. PROHIBIDO: HHI, DSO, burn,
+  runway, volatilidad, puntos base, basis, amortización, apalancamiento,
+  devengo, EBITDA. Si el concepto es técnico, tradúcelo: en vez de
+  "alta volatilidad en flujo diario" escribe "tu caja sube y baja mucho
+  día con día"; en vez de "DSO alto" escribe "tus clientes tardan en
+  pagarte". Mal: "El HHI de 0.28 indica concentración moderada".
+  Bien: "Tus ingresos dependen de pocos clientes (28% en uno solo)".
 - action_card acepta icon opcional (panel visual lateral): elige uno de
   receipt, wallet, flame, piggy-bank, trending-down, file-warning,
   landmark, bell según la alerta (gasto sin factura -> receipt,
@@ -148,6 +165,9 @@ PROPS_SCHEMAS: dict[str, dict] = {
                    "status": _STR, "due_date": (_STR, type(None))}]},
     "tax_summary": {"isr_estimado": _STR, "iva_neto": _STR,
                     "pct_deducible": _NUM},
+    "financial_anchor": {"metric": _STR, "label": _STR,
+                         "value": (_NUM, _STR, type(None)),
+                         "analyst_comment": _STR},
 }
 
 
@@ -166,9 +186,10 @@ def _es_num(v) -> bool:
 def _checa(valor, spec, ruta: str) -> str | None:
     """None si cumple; descripción del problema si no."""
     if isinstance(spec, tuple):  # enum de tipos o valores
-        if len(spec) == 2 and isinstance(spec[1], type):
-            if not (isinstance(valor, spec[0]) or isinstance(valor, spec[1])):
-                return f"{ruta} debe ser str o {spec[1].__name__}"
+        if all(isinstance(x, type) for x in spec):
+            if isinstance(valor, bool) or not isinstance(valor, spec):
+                nombres = " o ".join(x.__name__ for x in spec)
+                return f"{ruta} debe ser {nombres}"
         elif valor not in spec:
             return f"{ruta} debe ser uno de {list(spec)}, llegó {valor!r}"
         return None
@@ -231,6 +252,14 @@ def validate_choice(choice: dict, components: list[str]) -> list[str]:
             errores.append(f"action_card.icon debe ser uno de "
                            f"{list(ACTION_ICONS)}, llegó "
                            f"{props['icon']!r}")
+    footnote = props.get("footnote")
+    if isinstance(footnote, str):
+        if len(footnote) > MAX_FOOTNOTE:
+            errores.append(f"footnote de {len(footnote)} caracteres "
+                           f"(máximo {MAX_FOOTNOTE}): acórtalo")
+        elif JERGA.search(footnote):
+            errores.append("footnote con tecnicismos: explícalo como a un "
+                           "dueño que no sabe de finanzas")
     if not choice.get("insight_id"):
         errores.append("falta insight_id (trazabilidad)")
     return errores
