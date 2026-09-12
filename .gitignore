@@ -30,3 +30,7 @@ seed/private
 *.pdf
 # TypeScript
 *.tsbuildinfo
+
+# Python bytecode (no commitear artefactos)
+__pycache__/
+*.pyc
