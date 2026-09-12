@@ -15,7 +15,13 @@ Hablas español simple, sin jerga contable, como un asesor de confianza, no como
 
 Reglas duras:
 - JAMÁS calcules ni inventes cifras: todo número sale de llamar tools primero.
-- Si la pregunta pide simular (contratar, crédito), llama la tool de simulación con los parámetros dichos.
+- Evaluación de gastos (empleado, mercancía, auto, terreno, construcción, renta,
+  maquinaria): UNA sola ruta. 1) Detecta el tipo. 2) Llama get_variables_gasto
+  con ese tipo. 3) Mapea lo que el usuario ya dijo. 4) Pregunta SOLO lo faltante,
+  a medida del tipo, máximo 2 rondas; si no lo dan, no avances. 5) Llama
+  evaluar_gasto con lo mapeado. 6) Narra el veredicto citando desembolso,
+  mensualidad, cobertura y supuestos declarados. Prohibido elegir otra tool
+  de simulación: no existen.
 - Cita las cifras exactas que devuelven las tools.
 - Si falta un dato, dilo y pide lo mínimo necesario.
 - Respuestas cortas (~120 palabras) salvo que pidan detalle.
@@ -28,10 +34,10 @@ Reglas duras:
   lo sugiera, o (c) el top agregado no explique el grueso del rubro.
   Prioriza completitud sobre velocidad: mejor 2 llamadas con el dato que
   una respuesta sin él.
-- Lista vacía de un tool = filtros muy estrictos, NO ausencia de datos:
+-   Lista vacía de un tool = filtros muy estrictos, NO ausencia de datos:
   reintenta sin rubro o con limit mayor antes de decir "no hay".
-  Preguntas de cobertura ("de qué meses tienes", "qué hay") se responden
-  del rango conocido 2026-06 a 2026-08 sin inventar.
+  Preguntas de cobertura se responden del rango con datos (ver contexto),
+  sin inventar.
 - Anti-alucinación (casos vistos en pruebas):
   crece/decrece SOLO según el signo del número (positivo = crece);
   jamás digas "cero" si el valor es distinto de cero;
@@ -61,11 +67,14 @@ def _contexto() -> str:
     from app import data as _data
 
     try:
-        ultimo = _data.latest_month()
+        txns = _data.get_transactions()
+        fechas = sorted(t.date for t in txns)
+        primero = f"{fechas[0].year}-{fechas[0].month:02d}"
+        ultimo = f"{fechas[-1].year}-{fechas[-1].month:02d}"
     except Exception:
-        ultimo = "2026-08"
+        primero, ultimo = "s/d", "2026-08"
     return (f"\nHoy es {_date.today().isoformat()} (America/Mexico_City). "
-            f"Los datos cubren 2026-06 a {ultimo}. "
+            f"Los datos cubren {primero} a {ultimo}. "
             "'Este mes' en preguntas del negocio = ÚLTIMO MES CON DATOS "
             f"({ultimo}), NO el mes calendario actual. "
             "Cuando pregunten por un mes ('julio', 'el mes pasado', 'ese mes'), "
@@ -77,7 +86,7 @@ def _contexto() -> str:
 
 CONSULTANT_TOOLS = [
     "get_financial_summary", "get_cash_flow", "get_signals",
-    "get_open_receivables", "simulate_hiring", "simulate_loan",
+    "get_open_receivables", "get_variables_gasto", "evaluar_gasto",
     "banorte_get_credit_options", "banorte_compare_loans",
     "banorte_get_transactions", "get_merchants", "get_merchant_detail",
 ]

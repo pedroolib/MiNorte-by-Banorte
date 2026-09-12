@@ -81,14 +81,16 @@ if mcp is not None:  # pragma: no cover - transporte, no lógica
         return T.get_merchant_detail(nombre, month)
 
     @mcp.tool()
-    def simulate_hiring(monthly_cost: str, month: str | None = None) -> dict:
-        """¿Aguanta una contratación?"""
-        return T.simulate_hiring(monthly_cost, month)
+    def get_variables_gasto(expense_type: str | None = None) -> dict:
+        """Checklist del gasto."""
+        return T.get_variables_gasto(expense_type)
 
     @mcp.tool()
-    def simulate_loan(amount: str, annual_rate: str = "0.24", months: int = 12) -> dict:
-        """Amortización + cobertura."""
-        return T.simulate_loan(amount, annual_rate, months)
+    def evaluar_gasto(expense_type: str, variables: list | None = None,
+                      month: str | None = None, horizon_months: int | None = None,
+                      etapas: list | None = None) -> dict:
+        """Evalúa cualquier gasto."""
+        return T.evaluar_gasto(expense_type, variables, month, horizon_months, etapas)
 
     @mcp.tool()
     def get_customer_contact(customer_rfc: str) -> dict:

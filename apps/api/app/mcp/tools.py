@@ -220,20 +220,40 @@ def get_merchant_detail(nombre: str, month: str | None = None) -> dict:
     return d
 
 
-def simulate_hiring(monthly_cost: str | None, month: str | None = None) -> dict:
-    if not monthly_cost:
-        raise ValueError("monthly_cost requerido")
-    a, m = _month_arg(month)
-    r = en.simulate_hiring(data.get_transactions(), a, m, Decimal(monthly_cost))
-    return {k: (_s(v) if isinstance(v, Decimal) else v) for k, v in r.items()}
+def get_variables_gasto(expense_type: str | None = None) -> dict:
+    """Checklist del gasto (qué preguntar). Sin cálculos."""
+    from app.financial.expense_evaluation import variables_checklist
+
+    return variables_checklist(expense_type)
 
 
-def simulate_loan(amount: str, annual_rate: str | None = "0.24", months: int | None = 12) -> dict:
-    txns = data.get_transactions()
-    a, m = _month_arg(None)
-    r = en.simulate_loan(en.income_statement(txns, a, m)["utilidad"],
-                         Decimal(amount), Decimal(annual_rate or "0.24"), int(months or 12))
-    return {k: (_s(v) if isinstance(v, Decimal) else v) for k, v in r.items()}
+def _deep_str(obj):
+    from decimal import Decimal as _D
+
+    if isinstance(obj, _D):
+        return str(obj)
+    if isinstance(obj, dict):
+        return {k: _deep_str(v) for k, v in obj.items()}
+    if isinstance(obj, (list, tuple)):
+        return [_deep_str(v) for v in obj]
+    return obj
+
+
+def evaluar_gasto(expense_type: str, variables: list | None = None,
+                  month: str | None = None, horizon_months: int | None = None,
+                  etapas: list | None = None) -> dict:
+    """Evalúa CUALQUIER gasto: valida, calcula y dictamina.
+
+    Faltantes -> error 'falta: ...' (el modelo repregunta, máx 2 rondas).
+    Nunca adivina: defaults siempre declarados en 'supuestos'.
+    """
+    from app import data as _data
+    from app.financial.expense_evaluation import evaluar_gasto as _ev
+
+    txns = _data.get_transactions()
+    r = _ev(txns, expense_type, variables or [], month=month,
+            horizon_months=horizon_months, etapas=etapas)
+    return _deep_str(r)
 
 
 # ---------- operations lectura ----------
@@ -320,11 +340,43 @@ _t("get_merchants", "Nivel 1: comercios por rubro/monto. Tú decides cuántos tr
    ["rubro", "min_total", "limit", "month"], get_merchants)
 _t("get_merchant_detail", "Nivel 2: serie mensual + recurrencia de un comercio.",
    {"nombre": _STR, "month": _STR}, ["nombre", "month"], get_merchant_detail)
-_t("simulate_hiring", "¿Aguanta una contratación mensual?",
-   {"monthly_cost": _NUM}, ["monthly_cost"], simulate_hiring)
-_t("simulate_loan", "Amortización francesa + cobertura.",
-   {"amount": _NUM, "annual_rate": _NUM, "months": _INT},
-   ["amount"], simulate_loan)
+_t("get_variables_gasto",
+   "Checklist del gasto: qué variables pedir según el tipo. Úsala antes de evaluar.",
+   {"expense_type": {"type": ["string", "null"],
+                     "enum": ["empleado", "mercancia", "auto", "terreno",
+                              "construccion", "renta", "maquinaria", None],
+                     "description": "tipo o null para ver el catálogo"}},
+   ["expense_type"], get_variables_gasto)
+_t("evaluar_gasto",
+   "Evalúa CUALQUIER gasto (empleado, mercancía, auto, terreno, construcción, "
+   "renta, maquinaria): valida, calcula desembolso+flujos+amortización-ingresos "
+   "y dictamina viable/ajustada/riesgosa/no_viable. "
+   "Faltantes -> error 'falta: ...': repregunta tailored, máx 2 rondas, sin adivinar.",
+   {"expense_type": {"type": "string",
+                     "enum": ["empleado", "mercancia", "auto", "terreno",
+                              "construccion", "renta", "maquinaria"]},
+    "month": {"type": ["string", "null"], "description": "YYYY-MM o null=último"},
+    "horizon_months": {"type": ["integer", "null"]},
+    "variables": {"type": "array",
+                  "description": "Variables mapeadas de lo dicho por el usuario",
+                  "items": {"type": "object",
+                            "properties": {
+                                "nombre": {"type": "string"},
+                                "valor": {"type": "string"},
+                                "unidad": {"type": "string"}},
+                            "required": ["nombre", "valor", "unidad"],
+                            "additionalProperties": False}},
+    "etapas": {"type": "array",
+               "description": "Solo construcción: ministraciones por etapa",
+               "items": {"type": "object",
+                         "properties": {
+                             "nombre": {"type": "string"},
+                             "monto": {"type": "string"},
+                             "mes": {"type": "integer"}},
+                         "required": ["nombre", "monto", "mes"],
+                         "additionalProperties": False}}},
+   ["expense_type", "month", "horizon_months", "variables", "etapas"],
+   evaluar_gasto)
 _t("get_customer_contact", "Contacto del directorio por RFC (nunca inventa).",
    {"customer_rfc": _STR}, ["customer_rfc"], get_customer_contact)
 _t("prepare_payment_reminder", "Borrador SIN enviar (el envío es endpoint con guardas).",

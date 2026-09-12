@@ -126,53 +126,17 @@ def estimate_taxes(txns: list[Transaction], anio: int, mes: int) -> dict:
             "nota": "provisión simple 30% sobre utilidad; T-consultor la interpreta"}
 
 
-def simulate_hiring(txns: list[Transaction], anio: int, mes: int,
-                    monthly_cost: Decimal) -> dict:
-    """¿Aguanta la nómina? Matemática pura; el Consultor la interpreta."""
-    m = metrics(txns, anio, mes)
-    ordenados = sorted(txns, key=lambda t: (t.date, t.id))
-    efectivo = ordenados[-1].balance or CERO
-    cubre_con_utilidad = m["utilidad"] >= monthly_cost
-    burn_nuevo = m["burn_mensual"] + monthly_cost
-    runway_dias = int(efectivo / (burn_nuevo / 30)) if burn_nuevo > 0 else None
-    if cubre_con_utilidad:
-        veredicto = "viable"
-    elif runway_dias is not None and runway_dias >= 180:
-        veredicto = "viable_con_reservas"
-    elif runway_dias is not None and runway_dias >= 90:
-        veredicto = "riesgosa"
-    else:
-        veredicto = "no_viable"
-    return {
-        "monthly_cost": monthly_cost, "utilidad_mensual": m["utilidad"],
-        "cubre_con_utilidad": cubre_con_utilidad,
-        "burn_nuevo_mensual": burn_nuevo, "runway_dias": runway_dias,
-        "veredicto": veredicto,
-    }
-
-
-def simulate_loan(utilidad_mensual: Decimal, amount: Decimal,
-                  annual_rate: Decimal, months: int) -> dict:
-    """Crédito con amortización francesa. Cobertura = utilidad / pago."""
-    r = annual_rate / 12
+def amortizar_francesa(amount: Decimal, monthly_rate: Decimal, months: int) -> Decimal:
+    """Primitiva determinista: pago mensual exacto. La usan el evaluador
+    genérico, el comparador de créditos y /api/loans."""
+    if months <= 0:
+        raise ValueError("months debe ser >= 1")
+    if amount < 0:
+        raise ValueError("amount no acepta negativos")
+    r = monthly_rate
     n = months
-    if r == 0:
-        pago = amount / n
-    else:
-        pago = amount * r / (1 - (1 + r) ** (-n))
-    pago = pago.quantize(Decimal("0.01"))
-    cobertura = (utilidad_mensual / pago) if pago > 0 else None
-    if cobertura is None or cobertura < 1:
-        veredicto = "no_viable"
-    elif cobertura < Decimal("1.5"):
-        veredicto = "ajustada"
-    else:
-        veredicto = "viable"
-    return {
-        "amount": amount, "annual_rate": annual_rate, "months": months,
-        "pago_mensual": pago, "total_intereses": pago * n - amount,
-        "cobertura_con_utilidad": cobertura, "veredicto": veredicto,
-    }
+    pago = amount / n if r == 0 else amount * r / (1 - (1 + r) ** (-n))
+    return pago.quantize(Decimal("0.01"))
 
 
 def compare_credit_options(utilidad_mensual: Decimal, amount: Decimal,
@@ -192,19 +156,26 @@ def compare_credit_options(utilidad_mensual: Decimal, amount: Decimal,
         for n in op["plazos_meses"]:
             if months is not None and n != months:
                 continue
-            sim = simulate_loan(utilidad_mensual, amount,
-                                Decimal(op["tasa_anual"]), int(n))
+            pago = amortizar_francesa(amount, Decimal(op["tasa_anual"]) / 12, int(n))
+            total_intereses = pago * int(n) - amount
+            cobertura = (utilidad_mensual / pago) if pago > 0 else None
+            if cobertura is None or cobertura < 1:
+                veredicto = "no_viable"
+            elif cobertura < Decimal("1.5"):
+                veredicto = "ajustada"
+            else:
+                veredicto = "viable"
             comision = (amount * Decimal(op.get("comision_apertura_pct", "0"))
                         ).quantize(Decimal("0.01"))
             filas.append({
                 "option_id": op["id"], "nombre": op["nombre"],
                 "tasa_anual": op["tasa_anual"], "plazo_meses": int(n),
-                "pago_mensual": sim["pago_mensual"],
-                "total_intereses": sim["total_intereses"],
+                "pago_mensual": pago,
+                "total_intereses": total_intereses,
                 "comision_apertura": comision,
-                "costo_total": sim["total_intereses"] + comision,
-                "cobertura": sim["cobertura_con_utilidad"],
-                "veredicto": sim["veredicto"],
+                "costo_total": total_intereses + comision,
+                "cobertura": cobertura,
+                "veredicto": veredicto,
             })
     viables = sorted(
         (f for f in filas if f["veredicto"] == "viable"),

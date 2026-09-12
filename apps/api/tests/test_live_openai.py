@@ -39,7 +39,7 @@ def test_consultant_contrato_real():
 
     out = consultant.ask("¿Puedo contratar a alguien por $20,000 al mes?",
                          executor=T.execute)
-    assert "simulate_hiring" in out["tools_usados"]
+    assert "evaluar_gasto" in out["tools_usados"]
     assert len(out["respuesta"]) > 50
     print("\nRESPUESTA:", out["respuesta"][:400])
 
@@ -51,6 +51,6 @@ def test_consultant_credito_real():
     out = consultant.ask("Quiero un crédito de $100,000, ¿cuál me conviene?",
                          executor=T.execute)
     assert any(t in out["tools_usados"] for t in
-               ("banorte_compare_loans", "banorte_get_credit_options", "simulate_loan"))
+               ("banorte_compare_loans", "banorte_get_credit_options", "evaluar_gasto"))
     assert len(out["respuesta"]) > 50
     print("\nRESPUESTA:", out["respuesta"][:400])
