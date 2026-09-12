@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<cfdi:Comprobante xmlns:cfdi="http://www.sat.gob.mx/cfd/4" xmlns:tfd="http://www.sat.gob.mx/TimbreFiscalDigital" Version="4.0" Serie="F" Folio="2065" Fecha="2026-07-17T12:00:00" FormaPago="03" SubTotal="684.34" Moneda="MXN" Total="793.83" TipoDeComprobante="I" MetodoPago="PUE" LugarExpedicion="76087" Exportacion="01">
+ <cfdi:Emisor Rfc="COS910715KK2" Nombre="DHL EXPRESS CIB" RegimenFiscal="601"/>
+ <cfdi:Receptor Rfc="CNM160812AB1" Nombre="CAFE NORTENO SA DE CV" DomicilioFiscalReceptor="76087" RegimenFiscalReceptor="601" UsoCFDI="G03"/>
+ <cfdi:Conceptos>
+  <cfdi:Concepto ClaveProdServ="78102200" Cantidad="1" ClaveUnidad="E48" Descripcion="SERVICIO DE PAQUETERIA Y MENSAJERIA" ValorUnitario="684.34" Importe="684.34"/>
+ </cfdi:Conceptos>
+ <cfdi:Impuestos TotalImpuestosTrasladados="109.49">
+  <cfdi:Traslados>
+   <cfdi:Traslado Base="684.34" Impuesto="002" TipoFactor="Tasa" TasaOCuota="0.160000" Importe="109.49"/>
+  </cfdi:Traslados>
+ </cfdi:Impuestos>
+ <cfdi:Complemento>
+  <tfd:TimbreFiscalDigital Version="1.1" UUID="1BC828CE-5EAB-5E6A-B5A2-80BDBB71E516" FechaTimbrado="2026-07-17T12:05:00" RfcProvCertif="SAT970701NN3"/>
+ </cfdi:Complemento>
+</cfdi:Comprobante>

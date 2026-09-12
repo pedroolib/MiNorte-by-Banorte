@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<cfdi:Comprobante xmlns:cfdi="http://www.sat.gob.mx/cfd/4" xmlns:tfd="http://www.sat.gob.mx/TimbreFiscalDigital" Version="4.0" Serie="T" Folio="2006" Fecha="2026-06-04T12:00:00" FormaPago="04" SubTotal="2131.03" Moneda="MXN" Total="2472.00" TipoDeComprobante="I" MetodoPago="PUE" LugarExpedicion="76087" Exportacion="01">
+ <cfdi:Emisor Rfc="SUP810525DD4" Nombre="MERPAGO*MER PAGO 2" RegimenFiscal="601"/>
+ <cfdi:Receptor Rfc="CNM160812AB1" Nombre="CAFE NORTENO SA DE CV" DomicilioFiscalReceptor="76087" RegimenFiscalReceptor="601" UsoCFDI="G03"/>
+ <cfdi:Conceptos>
+  <cfdi:Concepto ClaveProdServ="50161500" Cantidad="1" ClaveUnidad="E48" Descripcion="COMPRA DE MATERIALES Y CONSUMIBLES" ValorUnitario="2131.03" Importe="2131.03"/>
+ </cfdi:Conceptos>
+ <cfdi:Impuestos TotalImpuestosTrasladados="340.97">
+  <cfdi:Traslados>
+   <cfdi:Traslado Base="2131.03" Impuesto="002" TipoFactor="Tasa" TasaOCuota="0.160000" Importe="340.97"/>
+  </cfdi:Traslados>
+ </cfdi:Impuestos>
+ <cfdi:Complemento>
+  <tfd:TimbreFiscalDigital Version="1.1" UUID="BC849DBF-98EC-5C14-8E02-A155B66629BF" FechaTimbrado="2026-06-04T12:05:00" RfcProvCertif="SAT970701NN3"/>
+ </cfdi:Complemento>
+</cfdi:Comprobante>

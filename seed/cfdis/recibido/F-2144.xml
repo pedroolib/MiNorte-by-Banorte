@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<cfdi:Comprobante xmlns:cfdi="http://www.sat.gob.mx/cfd/4" xmlns:tfd="http://www.sat.gob.mx/TimbreFiscalDigital" Version="4.0" Serie="F" Folio="2144" Fecha="2026-08-31T12:00:00" FormaPago="03" SubTotal="5112.91" Moneda="MXN" Total="5930.98" TipoDeComprobante="I" MetodoPago="PUE" LugarExpedicion="76087" Exportacion="01">
+ <cfdi:Emisor Rfc="SEG971124JJ1" Nombre="ISAAC R. LUNA" RegimenFiscal="601"/>
+ <cfdi:Receptor Rfc="CNM160812AB1" Nombre="CAFE NORTENO SA DE CV" DomicilioFiscalReceptor="76087" RegimenFiscalReceptor="601" UsoCFDI="G03"/>
+ <cfdi:Conceptos>
+  <cfdi:Concepto ClaveProdServ="72101500" Cantidad="1" ClaveUnidad="E48" Descripcion="PAGO A PROVEEDOR ORDEN 2398" ValorUnitario="5112.91" Importe="5112.91"/>
+ </cfdi:Conceptos>
+ <cfdi:Impuestos TotalImpuestosTrasladados="818.07">
+  <cfdi:Traslados>
+   <cfdi:Traslado Base="5112.91" Impuesto="002" TipoFactor="Tasa" TasaOCuota="0.160000" Importe="818.07"/>
+  </cfdi:Traslados>
+ </cfdi:Impuestos>
+ <cfdi:Complemento>
+  <tfd:TimbreFiscalDigital Version="1.1" UUID="E0B3C93E-7C66-548C-A710-30B2262C8D9C" FechaTimbrado="2026-08-31T12:05:00" RfcProvCertif="SAT970701NN3"/>
+ </cfdi:Complemento>
+</cfdi:Comprobante>

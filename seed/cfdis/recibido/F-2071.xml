@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<cfdi:Comprobante xmlns:cfdi="http://www.sat.gob.mx/cfd/4" xmlns:tfd="http://www.sat.gob.mx/TimbreFiscalDigital" Version="4.0" Serie="F" Folio="2071" Fecha="2026-07-20T12:00:00" FormaPago="03" SubTotal="576.66" Moneda="MXN" Total="668.93" TipoDeComprobante="I" MetodoPago="PUE" LugarExpedicion="76087" Exportacion="01">
+ <cfdi:Emisor Rfc="MER991006FF6" Nombre="LUCIA FERNANDEZ" RegimenFiscal="601"/>
+ <cfdi:Receptor Rfc="CNM160812AB1" Nombre="CAFE NORTENO SA DE CV" DomicilioFiscalReceptor="76087" RegimenFiscalReceptor="601" UsoCFDI="G03"/>
+ <cfdi:Conceptos>
+  <cfdi:Concepto ClaveProdServ="72101500" Cantidad="1" ClaveUnidad="E48" Descripcion="PAGO A PROVEEDOR ORDEN 2329" ValorUnitario="576.66" Importe="576.66"/>
+ </cfdi:Conceptos>
+ <cfdi:Impuestos TotalImpuestosTrasladados="92.27">
+  <cfdi:Traslados>
+   <cfdi:Traslado Base="576.66" Impuesto="002" TipoFactor="Tasa" TasaOCuota="0.160000" Importe="92.27"/>
+  </cfdi:Traslados>
+ </cfdi:Impuestos>
+ <cfdi:Complemento>
+  <tfd:TimbreFiscalDigital Version="1.1" UUID="FBB175F6-208D-579D-9031-56B0F12B5315" FechaTimbrado="2026-07-20T12:05:00" RfcProvCertif="SAT970701NN3"/>
+ </cfdi:Complemento>
+</cfdi:Comprobante>

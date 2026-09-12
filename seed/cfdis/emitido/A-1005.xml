@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<cfdi:Comprobante xmlns:cfdi="http://www.sat.gob.mx/cfd/4" xmlns:tfd="http://www.sat.gob.mx/TimbreFiscalDigital" Version="4.0" Serie="A" Folio="1005" Fecha="2026-07-09T12:00:00" FormaPago="03" SubTotal="10301.80" Moneda="MXN" Total="11950.09" TipoDeComprobante="I" MetodoPago="PUE" LugarExpedicion="76087" Exportacion="01">
+ <cfdi:Emisor Rfc="CNM160812AB1" Nombre="CAFE NORTENO SA DE CV" RegimenFiscal="601"/>
+ <cfdi:Receptor Rfc="CBA170221B46" Nombre="COMERCIALIZADORA DEL BAJIO SA DE CV" DomicilioFiscalReceptor="76087" RegimenFiscalReceptor="601" UsoCFDI="G03"/>
+ <cfdi:Conceptos>
+  <cfdi:Concepto ClaveProdServ="72101500" Cantidad="1" ClaveUnidad="E48" Descripcion="SERVICIO DE INSTALACION ELECTRICA" ValorUnitario="10301.80" Importe="10301.80"/>
+ </cfdi:Conceptos>
+ <cfdi:Impuestos TotalImpuestosTrasladados="1648.29">
+  <cfdi:Traslados>
+   <cfdi:Traslado Base="10301.80" Impuesto="002" TipoFactor="Tasa" TasaOCuota="0.160000" Importe="1648.29"/>
+  </cfdi:Traslados>
+ </cfdi:Impuestos>
+ <cfdi:Complemento>
+  <tfd:TimbreFiscalDigital Version="1.1" UUID="DADD3B7E-0FC1-5534-95BE-A830B60C3F53" FechaTimbrado="2026-07-09T12:05:00" RfcProvCertif="SAT970701NN3"/>
+ </cfdi:Complemento>
+</cfdi:Comprobante>

@@ -1,6 +1,5 @@
 """Valida contratos + seed provisional T0."""
 
-import json
 from decimal import Decimal
 from pathlib import Path
 
@@ -13,9 +12,9 @@ SEED = Path(__file__).resolve().parents[3] / "seed"
 
 
 def test_seed_transactions_valid():
-    txns = json.loads((SEED / "transactions.json").read_text())
-    assert len(txns) >= 5
-    parsed = [Transaction(**t) for t in txns]
+    from app.integrations.banking.banorte_csv import cargar_csv
+    parsed = cargar_csv(SEED / "transactions.csv")
+    assert len(parsed) == 473
     assert all(p.currency == "MXN" for p in parsed)
     assert all(p.amount > 0 for p in parsed)
 

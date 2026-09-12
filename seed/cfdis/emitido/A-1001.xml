@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<cfdi:Comprobante xmlns:cfdi="http://www.sat.gob.mx/cfd/4" xmlns:tfd="http://www.sat.gob.mx/TimbreFiscalDigital" Version="4.0" Serie="A" Folio="1001" Fecha="2026-06-01T12:00:00" FormaPago="03" SubTotal="1370.69" Moneda="MXN" Total="1590.00" TipoDeComprobante="I" MetodoPago="PUE" LugarExpedicion="76087" Exportacion="01">
+ <cfdi:Emisor Rfc="CNM160812AB1" Nombre="CAFE NORTENO SA DE CV" RegimenFiscal="601"/>
+ <cfdi:Receptor Rfc="MEJF800101AB1" Nombre="FRANCISCO J. MORALES" DomicilioFiscalReceptor="76087" RegimenFiscalReceptor="612" UsoCFDI="G03"/>
+ <cfdi:Conceptos>
+  <cfdi:Concepto ClaveProdServ="72101500" Cantidad="1" ClaveUnidad="E48" Descripcion="SERVICIO DE MANTENIMIENTO INDUSTRIAL" ValorUnitario="1370.69" Importe="1370.69"/>
+ </cfdi:Conceptos>
+ <cfdi:Impuestos TotalImpuestosTrasladados="219.31">
+  <cfdi:Traslados>
+   <cfdi:Traslado Base="1370.69" Impuesto="002" TipoFactor="Tasa" TasaOCuota="0.160000" Importe="219.31"/>
+  </cfdi:Traslados>
+ </cfdi:Impuestos>
+ <cfdi:Complemento>
+  <tfd:TimbreFiscalDigital Version="1.1" UUID="D10FF6EE-C542-50E5-BCEC-EC27E00AF49F" FechaTimbrado="2026-06-01T12:05:00" RfcProvCertif="SAT970701NN3"/>
+ </cfdi:Complemento>
+</cfdi:Comprobante>

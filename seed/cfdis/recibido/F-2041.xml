@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<cfdi:Comprobante xmlns:cfdi="http://www.sat.gob.mx/cfd/4" xmlns:tfd="http://www.sat.gob.mx/TimbreFiscalDigital" Version="4.0" Serie="F" Folio="2041" Fecha="2026-07-03T12:00:00" FormaPago="03" SubTotal="973.23" Moneda="MXN" Total="1128.95" TipoDeComprobante="I" MetodoPago="PUE" LugarExpedicion="76087" Exportacion="01">
+ <cfdi:Emisor Rfc="GAS061031CC3" Nombre="MARIA F. SOTO" RegimenFiscal="601"/>
+ <cfdi:Receptor Rfc="CNM160812AB1" Nombre="CAFE NORTENO SA DE CV" DomicilioFiscalReceptor="76087" RegimenFiscalReceptor="601" UsoCFDI="G03"/>
+ <cfdi:Conceptos>
+  <cfdi:Concepto ClaveProdServ="72101500" Cantidad="1" ClaveUnidad="E48" Descripcion="PAGO A PROVEEDOR ORDEN 2058" ValorUnitario="973.23" Importe="973.23"/>
+ </cfdi:Conceptos>
+ <cfdi:Impuestos TotalImpuestosTrasladados="155.72">
+  <cfdi:Traslados>
+   <cfdi:Traslado Base="973.23" Impuesto="002" TipoFactor="Tasa" TasaOCuota="0.160000" Importe="155.72"/>
+  </cfdi:Traslados>
+ </cfdi:Impuestos>
+ <cfdi:Complemento>
+  <tfd:TimbreFiscalDigital Version="1.1" UUID="AE2F3DE5-A544-514F-8B66-3CEF9D686BA9" FechaTimbrado="2026-07-03T12:05:00" RfcProvCertif="SAT970701NN3"/>
+ </cfdi:Complemento>
+</cfdi:Comprobante>

@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<cfdi:Comprobante xmlns:cfdi="http://www.sat.gob.mx/cfd/4" xmlns:tfd="http://www.sat.gob.mx/TimbreFiscalDigital" Version="4.0" Serie="F" Folio="2038" Fecha="2026-06-30T12:00:00" FormaPago="03" SubTotal="1509.00" Moneda="MXN" Total="1750.44" TipoDeComprobante="I" MetodoPago="PUE" LugarExpedicion="76087" Exportacion="01">
+ <cfdi:Emisor Rfc="SUN850309AA1" Nombre="ANDRES M. DIEZ" RegimenFiscal="601"/>
+ <cfdi:Receptor Rfc="CNM160812AB1" Nombre="CAFE NORTENO SA DE CV" DomicilioFiscalReceptor="76087" RegimenFiscalReceptor="601" UsoCFDI="G03"/>
+ <cfdi:Conceptos>
+  <cfdi:Concepto ClaveProdServ="72101500" Cantidad="1" ClaveUnidad="E48" Descripcion="PAGO A PROVEEDOR ORDEN 2236" ValorUnitario="1509.00" Importe="1509.00"/>
+ </cfdi:Conceptos>
+ <cfdi:Impuestos TotalImpuestosTrasladados="241.44">
+  <cfdi:Traslados>
+   <cfdi:Traslado Base="1509.00" Impuesto="002" TipoFactor="Tasa" TasaOCuota="0.160000" Importe="241.44"/>
+  </cfdi:Traslados>
+ </cfdi:Impuestos>
+ <cfdi:Complemento>
+  <tfd:TimbreFiscalDigital Version="1.1" UUID="0D98B903-CF2D-5A58-A6AD-134861D79D50" FechaTimbrado="2026-06-30T12:05:00" RfcProvCertif="SAT970701NN3"/>
+ </cfdi:Complemento>
+</cfdi:Comprobante>

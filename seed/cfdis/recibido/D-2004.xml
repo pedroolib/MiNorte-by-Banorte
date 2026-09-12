@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<cfdi:Comprobante xmlns:cfdi="http://www.sat.gob.mx/cfd/4" xmlns:tfd="http://www.sat.gob.mx/TimbreFiscalDigital" Version="4.0" Serie="D" Folio="2004" Fecha="2026-06-03T12:00:00" FormaPago="03" SubTotal="4183.19" Moneda="MXN" Total="4852.50" TipoDeComprobante="I" MetodoPago="PUE" LugarExpedicion="76087" Exportacion="01">
+ <cfdi:Emisor Rfc="GAS061031CC3" Nombre="VOLKSWAGEN 4,852.50 4,324.62 LEASING" RegimenFiscal="601"/>
+ <cfdi:Receptor Rfc="CNM160812AB1" Nombre="CAFE NORTENO SA DE CV" DomicilioFiscalReceptor="76087" RegimenFiscalReceptor="601" UsoCFDI="G03"/>
+ <cfdi:Conceptos>
+  <cfdi:Concepto ClaveProdServ="78111800" Cantidad="1" ClaveUnidad="E48" Descripcion="ARRENDAMIENTO DE EQUIPO DE TRANSPORTE" ValorUnitario="4183.19" Importe="4183.19"/>
+ </cfdi:Conceptos>
+ <cfdi:Impuestos TotalImpuestosTrasladados="669.31">
+  <cfdi:Traslados>
+   <cfdi:Traslado Base="4183.19" Impuesto="002" TipoFactor="Tasa" TasaOCuota="0.160000" Importe="669.31"/>
+  </cfdi:Traslados>
+ </cfdi:Impuestos>
+ <cfdi:Complemento>
+  <tfd:TimbreFiscalDigital Version="1.1" UUID="B415B4BD-7855-5173-9CF8-A654EA09C758" FechaTimbrado="2026-06-03T12:05:00" RfcProvCertif="SAT970701NN3"/>
+ </cfdi:Complemento>
+</cfdi:Comprobante>
