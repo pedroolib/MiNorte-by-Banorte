@@ -30,8 +30,8 @@ def _row(c: Cfdi) -> dict:
         "uso_cfdi": c.uso_cfdi,
         "clave_prodserv": c.clave_prodserv,
         "clave_unidad": c.clave_unidad,
+        "lugar_expedicion": c.lugar_expedicion,
     }
-
 def upsert_cfdis(sb: Any, cfdis: list[Cfdi], batch: int = 200) -> int:
     n = 0
     for i in range(0, len(cfdis), batch):
@@ -56,6 +56,7 @@ def to_cfdi(r: dict, company_id: str) -> Cfdi:
         uso_cfdi=r.get("uso_cfdi"),
         clave_prodserv=r.get("clave_prodserv"),
         clave_unidad=r.get("clave_unidad"),
+        lugar_expedicion=r.get("lugar_expedicion"),
     )
 
 

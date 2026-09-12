@@ -25,6 +25,7 @@ from app.integrations.banking.banorte_csv import cargar_csv  # noqa: E402
 from app.integrations.sat import cfdi_xml as cx  # noqa: E402
 from app.repositories import transactions_repo as repo  # noqa: E402
 from app.repositories import cfdi_repo, collections_repo as colrepo  # noqa: E402
+from app.repositories import profile_repo  # noqa: E402
 
 # Flujo neto esperado por mes (depósitos - retiros del resumen;
 # las devoluciones viajan como ingreso neto, el neto no miente).
@@ -121,6 +122,23 @@ def main() -> None:
         for rfc, nom in vistos.items()])
     print(f"contactos={n_con} (con email: "
           f"{sum(1 for r in (extra or {}) if (extra[r] or {}).get('email'))})")
+
+    # 6. perfil default SOLO si no existe (nunca pisa edición manual).
+    # Se genera con la misma detección que propone /ajustes.
+    try:
+        if profile_repo.get_profile(sb, company_id) is None:
+            sug = profile_repo.sugerir_perfil(txns, cfdis)
+            sb.table("business_profiles").insert({
+                "company_id": company_id, "giro": sug["giro"],
+                "ciudad": sug["ciudad"], "estado": sug["estado"],
+                "cp": sug["cp"], "tamanio": sug["tamanio"],
+                "modelo": sug["modelo"], "notas": "seed inicial"}).execute()
+            print(f"perfil default creado: {sug['giro']} · "
+                  f"{sug['ciudad']} · {sug['tamanio']} · {sug['modelo']}")
+        else:
+            print("perfil existente: se respeta")
+    except Exception as e:
+        print(f"perfil omitido ({e})")
     print("load_seed OK")
 
 

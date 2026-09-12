@@ -1,0 +1,314 @@
+"""Tools MCP (T8): fuente única para agentes y clientes MCP externos.
+
+Cada tool es una función pura sobre app.data + engine + repos, con schema
+JSON estricto (compatible OpenAI strict + MCP inputSchema). Sin LLM aquí.
+Montos como string (Decimal JSON). Fuentes mock marcadas source=mock_*.
+"""
+
+from __future__ import annotations
+
+import json
+from decimal import Decimal
+from pathlib import Path
+
+from app import data
+from app.agents.llm import ToolDef
+from app.config import get_settings
+from app.financial import engine as en
+from app.financial import reconcile as rc
+from app.operator import collections as op
+
+OBJ = {"type": "object", "properties": {}, "required": [],
+       "additionalProperties": False}
+
+
+def _schema(props: dict, required: list[str]) -> dict:
+    return {"type": "object", "properties": props, "required": required,
+            "additionalProperties": False}
+
+
+def _s(v) -> str:
+    return str(v)
+
+
+def _month_arg(month: str | None) -> tuple[int, int]:
+    month = month or data.latest_month()
+    a, m = map(int, month.split("-"))
+    return a, m
+
+
+# ---------- banking ----------
+
+def banorte_get_transactions(month: str | None = None, categoria: str | None = None,
+                             tipo: str | None = None, limit: int | None = 200) -> list[dict]:
+    out = []
+    tope = max(1, min(limit or 200, 500))
+    for t in data.get_transactions():
+        if month and t.date.strftime("%Y-%m") != month:
+            continue
+        if categoria and t.categoria != categoria:
+            continue
+        if tipo and t.type != tipo:
+            continue
+        out.append({"id": t.id, "fecha": t.date.isoformat(), "descripcion": t.description,
+                    "comercio": t.merchant_name, "tipo": t.type, "monto": _s(t.amount),
+                    "saldo": _s(t.balance) if t.balance is not None else None,
+                    "categoria": t.categoria, "rubro": t.rubro})
+        if len(out) >= tope:
+            break
+    return out
+
+
+def banorte_get_balance() -> dict:
+    txns = sorted(data.get_transactions(), key=lambda t: (t.date, t.id))
+    ult = txns[-1]
+    return {"saldo": _s(ult.balance), "fecha": ult.date.isoformat(),
+            "source": "mock_banorte"}
+
+
+def _credit_options() -> list[dict]:
+    for base in (Path.cwd(), Path(__file__).resolve().parents[3]):
+        p = base / "seed" / "credit_options.json"
+        if p.exists():
+            return json.loads(p.read_text(encoding="utf-8"))
+    return []
+
+
+def banorte_get_credit_options() -> dict:
+    """Catálogo mock (spec #10): no son ofertas reales contratables hoy."""
+    return {"source": "mock_banorte", "nota": "catálogo demostrativo",
+            "items": _credit_options()}
+
+
+def banorte_compare_loans(amount: str, months: int | None = None) -> dict:
+    txns = data.get_transactions()
+    a, m = _month_arg(None)
+    inc = en.income_statement(txns, a, m)
+    r = en.compare_credit_options(inc["utilidad"], Decimal(amount),
+                                  _credit_options(), months)
+    r["utilidad_mensual"] = _s(inc["utilidad"])
+    r["amount"] = _s(r["amount"])
+    for f in r["ranking"]:
+        for k in ("pago_mensual", "total_intereses", "comision_apertura",
+                  "costo_total", "cobertura"):
+            f[k] = _s(f[k]) if f[k] is not None else None
+    if r["recomendada"]:
+        rec = dict(r["recomendada"])
+        r["recomendada"] = rec
+    return r
+
+
+# ---------- fiscal ----------
+
+def sat_list_cfdis(tipo: str | None = None, limit: int | None = 50) -> list[dict]:
+    out = []
+    tope = max(1, min(limit or 50, 200))
+    for c in data.get_cfdis():
+        if tipo in ("emitido", "recibido") and c.tipo != tipo:
+            continue
+        out.append({"uuid": c.uuid, "tipo": c.tipo, "total": _s(c.total),
+                    "fecha_emision": c.fecha_emision.isoformat(),
+                    "emisor": c.emisor_nombre, "receptor": c.receptor_nombre,
+                    "folio": f"{c.serie or ''}-{c.folio or ''}".strip("-")})
+        if len(out) >= tope:
+            break
+    return out
+
+
+def sat_get_cfdi(uuid: str) -> dict:
+    for c in data.get_cfdis():
+        if c.uuid.lower() == uuid.lower():
+            return c.model_dump(mode="json")
+    raise ValueError(f"CFDI no existe: {uuid}")
+
+
+# ---------- financial ----------
+
+def get_financial_summary(month: str | None = None) -> dict:
+    from app.repositories import financial_repo as fr
+
+    company_id = get_settings().COMPANY_ID
+    month = month or data.latest_month()
+    sb = None
+    try:
+        from app.db import get_supabase
+        sb = get_supabase()
+    except Exception:
+        pass
+    if sb is not None:
+        try:
+            snap = fr.fetch_snapshot(sb, company_id, month)
+            if snap:
+                return {"month": month, **{k: _s(snap[k]) for k in
+                        ("ventas", "gastos", "utilidad", "efectivo",
+                         "impuesto_estimado", "cxc_total", "flujo_neto")}}
+        except Exception:
+            pass
+    txns = data.get_transactions()
+    a, m = map(int, month.split("-"))
+    fm = [t for t in txns if (t.date.year, t.date.month) == (a, m)]
+    ventas = sum((t.amount for t in fm if t.type == "ingreso"), Decimal("0"))
+    gastos = sum((t.amount for t in fm if t.type == "egreso"), Decimal("0"))
+    ordenados = sorted(txns, key=lambda t: (t.date, t.id))
+    return {"month": month, "ventas": _s(ventas), "gastos": _s(gastos),
+            "utilidad": _s(ventas - gastos),
+            "efectivo": _s(ordenados[-1].balance or Decimal("0"))}
+
+
+def get_cash_flow(month: str | None = None) -> dict:
+    a, m = _month_arg(month)
+    cf = en.cash_flow(data.get_transactions(), a, m)
+    return {"month": f"{a}-{m:02d}", **{k: _s(v) for k, v in cf.items()}}
+
+
+def get_signals(month: str | None = None) -> dict:
+    a, m = _month_arg(month)
+    s = en.signals(data.get_transactions(), data.get_cfdis(),
+                   data.get_matches(), a, m)
+
+    def _j(v):
+        if isinstance(v, Decimal):
+            return str(v)
+        if isinstance(v, dict):
+            return {kk: _j(vv) for kk, vv in v.items()}
+        if isinstance(v, (list, tuple)):
+            return [_j(x) for x in v]
+        return v
+
+    out = {"month": f"{a}-{m:02d}", "signals": {k: _j(v) for k, v in s.items()},
+           "brief": en.brief_mensual(s, a, m)}
+    if not s.get("tiene_datos"):
+        out["advertencia"] = (f"{a}-{m:02d} sin movimientos; "
+                              f"último mes con datos: {data.latest_month()}")
+    return out
+
+
+def get_open_receivables() -> list[dict]:
+    recs = rc.detectar_cxc(data.get_cfdis(), data.get_matches(),
+                           get_settings().COMPANY_ID)
+    por_uuid = {c.uuid: c for c in data.get_cfdis()}
+    out = []
+    for r in recs:
+        c = por_uuid.get(r.cfdi_id)
+        out.append({"id": r.id, "cfdi_uuid": r.cfdi_id, "customer": r.customer_name,
+                    "customer_rfc": r.customer_rfc,
+                    "amount_pending": _s(r.amount_pending),
+                    "issued_at": r.issued_at.isoformat(),
+                    "due_date": r.due_date.isoformat() if r.due_date else None,
+                    "folio": f"{c.serie or ''}-{c.folio or ''}".strip("-") if c else ""})
+    return out
+
+
+def simulate_hiring(monthly_cost: str | None, month: str | None = None) -> dict:
+    if not monthly_cost:
+        raise ValueError("monthly_cost requerido")
+    a, m = _month_arg(month)
+    r = en.simulate_hiring(data.get_transactions(), a, m, Decimal(monthly_cost))
+    return {k: (_s(v) if isinstance(v, Decimal) else v) for k, v in r.items()}
+
+
+def simulate_loan(amount: str, annual_rate: str | None = "0.24", months: int | None = 12) -> dict:
+    txns = data.get_transactions()
+    a, m = _month_arg(None)
+    r = en.simulate_loan(en.income_statement(txns, a, m)["utilidad"],
+                         Decimal(amount), Decimal(annual_rate or "0.24"), int(months or 12))
+    return {k: (_s(v) if isinstance(v, Decimal) else v) for k, v in r.items()}
+
+
+# ---------- operations lectura ----------
+
+def get_customer_contact(customer_rfc: str) -> dict:
+    from app.db import get_supabase
+    from app.repositories import collections_repo as col
+
+    sb = get_supabase()
+    if sb is None:
+        raise ValueError("directorio no disponible (sin Supabase)")
+    try:
+        c = col.get_contact(sb, get_settings().COMPANY_ID, customer_rfc)
+    except Exception as e:
+        raise ValueError(f"directorio no disponible ({e})")
+    if not c or not c.get("email"):
+        return {"tiene_email": False,
+                "detalle": "sin correo en el directorio: captúralo antes de enviar"}
+    return {"tiene_email": True, "email": c["email"],
+            "customer_name": c.get("customer_name", "")}
+
+
+def prepare_payment_reminder(receivable_id: str) -> dict:
+    recs = {r["id"]: r for r in get_open_receivables()}
+    if receivable_id not in recs:
+        raise ValueError(f"receivable no abierto: {receivable_id}")
+    r = recs[receivable_id]
+    cfdis = {c.uuid: c for c in data.get_cfdis()}
+    c = cfdis.get(r["cfdi_uuid"])
+    return op.prepare_draft(
+        {"id": r["id"], "customer_name": r["customer"],
+         "amount_pending": r["amount_pending"],
+         "issued_at": r["issued_at"], "due_date": r["due_date"]},
+        (c.model_dump(mode="json") if c else {"uuid": "", "serie": "", "folio": ""}),
+        None, {"razon_social": "CAFE NORTENO SA DE CV",
+               "nombre_comercial": "Café Norteño"})
+
+
+# ---------- registry ----------
+
+def _req(*names: str) -> list[str]:
+    return list(names)
+
+
+TOOLS: list[dict] = []
+
+
+def _t(name: str, desc: str, props: dict, required: list[str], fn):
+    # OpenAI strict: required incluye TODAS las propiedades (el modelo
+    # manda null en las opcionales; las impls lo tratan como ausente).
+    required = list(props.keys())
+    TOOLS.append({"name": name, "description": desc,
+                  "parameters": {"type": "object", "properties": props,
+                                 "required": required,
+                                 "additionalProperties": False},
+                  "fn": fn})
+
+
+_STR = {"type": "string"}
+_NUM = {"type": "string", "description": "Decimal como string"}
+_INT = {"type": "integer"}
+
+_t("banorte_get_transactions", "Movimientos bancarios (mock). Filtros opcionales.",
+   {"month": {**_STR, "description": "YYYY-MM"},
+    "categoria": _STR, "tipo": {**_STR, "description": "ingreso|egreso"},
+    "limit": {**_INT, "description": "1-500"}}, [], banorte_get_transactions)
+_t("banorte_get_balance", "Último saldo bancario (mock).", {}, [], banorte_get_balance)
+_t("banorte_get_credit_options", "Catálogo de créditos mock (no contratables directo).",
+   {}, [], banorte_get_credit_options)
+_t("banorte_compare_loans", "Compara catálogo para un monto: pago, costo, cobertura.",
+   {"amount": {**_NUM, "description": "monto solicitado"},
+    "months": {**_INT, "description": "plazo exacto opcional"}}, ["amount"], banorte_compare_loans)
+_t("sat_list_cfdis", "CFDIs por tipo (mock SAT).", {"tipo": _STR, "limit": _INT}, [], sat_list_cfdis)
+_t("sat_get_cfdi", "CFDI por UUID.", {"uuid": _STR}, ["uuid"], sat_get_cfdi)
+_t("get_financial_summary", "Resumen del mes (snapshot o live).",
+   {"month": _STR}, ["month"], get_financial_summary)
+_t("get_cash_flow", "Flujo del mes.", {"month": _STR}, [], get_cash_flow)
+_t("get_signals", "Señales del motor para análisis.", {"month": _STR}, [], get_signals)
+_t("get_open_receivables", "CxC abiertas con folio y vencimiento.", {}, [], get_open_receivables)
+_t("simulate_hiring", "¿Aguanta una contratación mensual?",
+   {"monthly_cost": _NUM}, ["monthly_cost"], simulate_hiring)
+_t("simulate_loan", "Amortización francesa + cobertura.",
+   {"amount": _NUM, "annual_rate": _NUM, "months": _INT},
+   ["amount"], simulate_loan)
+_t("get_customer_contact", "Contacto del directorio por RFC (nunca inventa).",
+   {"customer_rfc": _STR}, ["customer_rfc"], get_customer_contact)
+_t("prepare_payment_reminder", "Borrador SIN enviar (el envío es endpoint con guardas).",
+   {"receivable_id": _STR}, ["receivable_id"], prepare_payment_reminder)
+
+
+def as_tool_defs() -> list[ToolDef]:
+    return [ToolDef(t["name"], t["description"], t["parameters"]) for t in TOOLS]
+
+
+def execute(name: str, args: dict):
+    for t in TOOLS:
+        if t["name"] == name:
+            return t["fn"](**(args or {}))
+    raise ValueError(f"tool inexistente: {name}")

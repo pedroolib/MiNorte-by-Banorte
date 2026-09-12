@@ -175,6 +175,52 @@ def simulate_loan(utilidad_mensual: Decimal, amount: Decimal,
     }
 
 
+def compare_credit_options(utilidad_mensual: Decimal, amount: Decimal,
+                           options: list[dict],
+                           months: int | None = None) -> dict:
+    """Compara catálogo (mock Banorte) para un monto: pago, costo y cobertura.
+
+    Ordena viables por costo total (intereses + apertura). Recomienda la
+    viable más barata; si ninguna es viable lo dice con el pago mínimo.
+    Determinista: el Consultor solo interpreta el ranking.
+    """
+    filas: list[dict] = []
+    for op in options:
+        omin, omax = Decimal(op["monto_min"]), Decimal(op["monto_max"])
+        if not (omin <= amount <= omax):
+            continue
+        for n in op["plazos_meses"]:
+            if months is not None and n != months:
+                continue
+            sim = simulate_loan(utilidad_mensual, amount,
+                                Decimal(op["tasa_anual"]), int(n))
+            comision = (amount * Decimal(op.get("comision_apertura_pct", "0"))
+                        ).quantize(Decimal("0.01"))
+            filas.append({
+                "option_id": op["id"], "nombre": op["nombre"],
+                "tasa_anual": op["tasa_anual"], "plazo_meses": int(n),
+                "pago_mensual": sim["pago_mensual"],
+                "total_intereses": sim["total_intereses"],
+                "comision_apertura": comision,
+                "costo_total": sim["total_intereses"] + comision,
+                "cobertura": sim["cobertura_con_utilidad"],
+                "veredicto": sim["veredicto"],
+            })
+    viables = sorted(
+        (f for f in filas if f["veredicto"] == "viable"),
+        key=lambda f: f["costo_total"])
+    ajustadas = sorted(
+        (f for f in filas if f["veredicto"] == "ajustada"),
+        key=lambda f: f["costo_total"])
+    recomendada = (viables or ajustadas or [None])[0]
+    return {
+        "amount": amount, "opciones_evaluadas": len(filas),
+        "ranking": sorted(filas, key=lambda f: (f["veredicto"] != "viable",
+                                                f["costo_total"])),
+        "recomendada": recomendada,
+    }
+
+
 def ultimo_dia_con_saldo(txns: list[Transaction]) -> date | None:
     ordenados = sorted(txns, key=lambda t: (t.date, t.id))
     return ordenados[-1].date.date() if ordenados else None
@@ -320,7 +366,10 @@ def signals(txns: list[Transaction], cfdis: list[Cfdi], matches: list[Match],
     pagados = sum((t.amount for t in fm if t.type == "egreso"
                    and t.categoria == "impuestos"), CERO)
 
-    return {
+    return _redondear({
+        # base
+        "ventas": ventas, "gastos": gastos, "utilidad": ventas - gastos,
+        "tiene_datos": len(fm) > 0, "n_movimientos": len(fm),
         # crecimiento
         "crec_ventas": cv, "crec_gastos": cg,
         "brecha_pp": (cg - cv) if (cv is not None and cg is not None) else None,
@@ -364,7 +413,59 @@ def signals(txns: list[Transaction], cfdis: list[Cfdi], matches: list[Match],
         "ratio_fondeo_interno": (dep_int / ventas) if ventas > 0 else CERO,
         "hhi_gasto_proveedores": hhi_prov,
         "masa_salarial_estimada": masa,
-    }
+    })
+
+
+def _redondear(s: dict) -> dict:
+    """Ratios a 4 decimales y dinero a 2: menos ruido para el lector (y la IA)."""
+    ratios = {"crec_ventas", "crec_gastos", "brecha_pp", "margen",
+              "margen_previo", "margen_delta_pp",
+              "margen_operativo_excl_comisiones", "burn_multiple", "regla_40",
+              "operating_leverage", "hhi_ingresos", "hhi_gasto_proveedores",
+              "ratio_fondeo_interno", "pct_gasto_deducible", "cxc_top_cliente",
+              "cxc_pct_vencida", "cobertura_gastos_fijos",
+              "margen_bruto_proxy"}
+    dinero = {"ticket_promedio_ingreso", "ticket_mediano_ingreso", "dso_dias"}
+    out = {}
+    for k, v in s.items():
+        if isinstance(v, Decimal) and k in ratios:
+            out[k] = v.quantize(Decimal("0.0001"))
+        elif isinstance(v, Decimal) and k in dinero:
+            out[k] = v.quantize(Decimal("0.01"))
+        else:
+            out[k] = v
+    return out
+
+
+def brief_mensual(s: dict, anio: int, mes: int) -> list[str]:
+    """Verbalización determinística de señales (formato, cero juicio).
+
+    Lee en voz alta los números para que el modelo no los malinterprete.
+    Sin adjetivos: el juicio es del Analista.
+    """
+    mes_id = f"{anio}-{mes:02d}"
+
+    def pct(x):
+        if x is None:
+            return "s/d"
+        return f"{'+' if x >= 0 else ''}{float(x) * 100:.1f}%"
+
+    def mxn(x):
+        return f"${float(x):,.2f}"
+
+    if not s.get("tiene_datos"):
+        return [f"{mes_id}: SIN MOVIMIENTOS registrados (no es caída, es mes vacío)."]
+    b = [
+        f"ventas {mes_id}: {mxn(s['ventas'])} ({pct(s['crec_ventas'])} vs mes previo)",
+        f"gastos {mes_id}: {mxn(s['gastos'])} ({pct(s['crec_gastos'])} vs mes previo)",
+        f"margen: {pct(s['margen'])} (previo {pct(s['margen_previo'])})",
+        f"efectivo a fin de mes: {mxn(s['efectivo'])}; burn mensual {mxn(s['burn_mensual'])}; runway {s['runway_dias']} días",
+        f"CxC abiertas: {s['cxc_count']} por {mxn(s['cxc_total'])}; vencidas {pct(s['cxc_pct_vencida'])}; DSO {s['dso_dias']} días",
+        f"fondeo interno del mes: {mxn(s['fondeo_interno'])} ({pct(s['ratio_fondeo_interno'])} de ingresos)",
+        f"gasto deducible con CFDI: {pct(s['pct_gasto_deducible'])}",
+        f"IVA del mes: trasladado {mxn(s['iva_trasladado'])}, acreditable {mxn(s['iva_acreditable'])}",
+    ]
+    return b
 
 
 def _por_llave(fm: list[Transaction], llave, tipo: str) -> list[Decimal]:
