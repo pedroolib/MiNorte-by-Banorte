@@ -148,6 +148,22 @@ def api_signals(month: str | None = None):
             "brief": engine.brief_mensual(s, anio, mes)}
 
 
+@app.get("/api/metric")
+def api_metric(name: str, month: str | None = None):
+    """Una métrica por nombre (para el Diseñador y debug).
+
+    Desconocida -> 400 con el catálogo (nunca null silencioso).
+    """
+    from fastapi import HTTPException
+
+    from app.mcp import tools as T
+
+    try:
+        return T.get_metric(name, month)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+
+
 @app.get("/api/receivables")
 def api_receivables():
     """Cuentas por cobrar abiertas (T5). Tabla primero, live si no hay."""
@@ -541,6 +557,70 @@ def api_chat(body: dict):
     except Exception as e:
         if "PGRST205" in str(e) or "Could not find the table" in str(e):
             raise HTTPException(503, f"corre migrations/006_agents.sql ({e})")
+        raise
+
+
+@app.post("/api/analyst/run")
+def api_analyst_run(body: dict | None = None):
+    """Analista: señales del mes → insights rankeados con evidencia.
+
+    Idempotente: reemplaza los insights del mes (igual que alertas).
+    """
+    from fastapi import HTTPException
+
+    from app.agents import analyst as _an
+    from app.agents.llm import LLMError
+    from app.repositories import analyst_repo as _ar
+    from app.repositories import profile_repo as _pr
+
+    sb = _sb_or_503()
+    company_id = get_current_company()
+    month = (body or {}).get("month") or _latest_month()
+    try:
+        try:
+            perfil = _pr.get_profile(sb, company_id)
+        except Exception:
+            perfil = None
+        try:
+            r = _an.run(month, perfil=perfil, company_id=company_id)
+        except LLMError as e:
+            raise HTTPException(502, f"modelo no disponible: {e}")
+        except ValueError as e:
+            # Validación determinista rechazó insights: JSON con motivos,
+            # nunca 500 plano (el pipe con json.tool no debe tronar).
+            raise HTTPException(422, {"error": "insights inválidos",
+                                      "detalle": str(e)})
+        try:
+            guardados = _ar.reemplazar(sb, company_id, month, r["insights"])
+        except Exception as e:
+            if "PGRST205" in str(e) or "Could not find the table" in str(e):
+                raise HTTPException(
+                    503, f"corre migrations/010_analyst_insights.sql ({e})")
+            raise
+        return {"month": month, "insights": guardados,
+                "tools_usados": r["tools_usados"],
+                "truncado": r["truncado"]}
+    except HTTPException:
+        raise
+
+
+@app.get("/api/analyst/insights")
+def api_analyst_insights(month: str | None = None):
+    """Insights guardados del mes (lectura para UI y Diseñador)."""
+    from fastapi import HTTPException
+
+    from app.repositories import analyst_repo as _ar
+
+    sb = _sb_or_503()
+    company_id = get_current_company()
+    month = month or _latest_month()
+    try:
+        return {"month": month,
+                "insights": _ar.listar(sb, company_id, month)}
+    except Exception as e:
+        if "PGRST205" in str(e) or "Could not find the table" in str(e):
+            raise HTTPException(
+                503, f"corre migrations/010_analyst_insights.sql ({e})")
         raise
 
 

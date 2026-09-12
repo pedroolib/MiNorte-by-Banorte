@@ -103,10 +103,15 @@ Nivel 2 = `get_merchant_detail(nombre)` (serie mensual + recurrencia).
 Comercios se agrupan por NOMBRE (entidad); los RFCs se reservan para
 joins de contacto.
 
-Nota de arquitectura: las tarjetas finales las elige la IA compositora a
-partir de señales + alertas + su interpretación (tabla separada
-`analyst_insights` en T8). Este catálogo define los componentes disponibles,
-no cuáles se muestran.
+Nota de arquitectura: las tarjetas finales las elige el Diseñador
+(`app/agents/designer.py`) a partir de insights rankeados. Flujo:
+Analista (qué importa) → mapper determinista (solo `sin_factura` y
+`cuentas_por_cobrar`, lo mecánico) → Diseñador (solo lo ambiguo, con
+`metric_catalog` + `get_metric`, fallback `insight_text`).
+
+El Diseñador nunca inventa cifras: resuelve por nombre exacto del
+catálogo (`metric_catalog()` en motor, `GET /api/metric` en API);
+nombre inexistente devuelve el catálogo, no null.
 
 ## 6. Roadmap (no construir aún)
 

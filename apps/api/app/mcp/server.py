@@ -60,9 +60,24 @@ if mcp is not None:  # pragma: no cover - transporte, no lógica
         return T.get_cash_flow(month)
 
     @mcp.tool()
+    def get_months_with_data() -> dict:
+        """Meses con transacciones + latest."""
+        return T.get_months_with_data()
+
+    @mcp.tool()
     def get_signals(month: str | None = None) -> dict:
         """Señales del motor."""
         return T.get_signals(month)
+
+    @mcp.tool()
+    def get_metric(name: str, month: str | None = None) -> dict:
+        """Una métrica por nombre (ver metric_catalog)."""
+        return T.get_metric(name, month)
+
+    @mcp.tool()
+    def metric_catalog() -> list:
+        """Catálogo de métricas disponibles."""
+        return T.metric_catalog()
 
     @mcp.tool()
     def get_open_receivables() -> list:

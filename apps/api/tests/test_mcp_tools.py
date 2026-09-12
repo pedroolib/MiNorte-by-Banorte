@@ -11,6 +11,8 @@ ESPERADAS = {
     "banorte_get_credit_options", "banorte_compare_loans",
     "sat_list_cfdis", "sat_get_cfdi",
     "get_financial_summary", "get_cash_flow", "get_signals",
+    "get_months_with_data",
+    "get_metric", "metric_catalog",
     "get_open_receivables", "get_variables_gasto", "evaluar_gasto",
     "get_customer_contact", "prepare_payment_reminder",
     "get_merchants", "get_merchant_detail",
@@ -53,6 +55,18 @@ def test_impls_formas():
     assert sig["signals"]["runway_dias"] == 4
 
 
+def test_get_metric_y_catalogo():
+    from app.mcp import tools as T
+
+    m = T.execute("get_metric", {"name": "runway_dias", "month": "2026-08"})
+    assert m["value"] == 4 and m["unidad"] == "días" and m["familia"] == "liquidez"
+    cat = T.execute("metric_catalog", {})
+    assert len(cat) >= 40 and all(
+        set(e) == {"nombre", "descripcion", "unidad", "familia"} for e in cat)
+    with pytest.raises(ValueError, match="Disponibles"):
+        T.execute("get_metric", {"name": "no_existe", "month": None})
+
+
 def test_server_expone_tools():
     import app.mcp.server as S
 
@@ -91,3 +105,11 @@ def test_evaluar_gasto_registry_y_faltantes():
                                     "etapas": None})
     g = T.execute("get_variables_gasto", {"expense_type": "renta"})
     assert any(v["nombre"] == "monthly_rent" for v in g["variables"])
+
+
+def test_get_months_with_data():
+    from app.mcp import tools as T
+
+    r = T.execute("get_months_with_data", {})
+    assert r["months"] == ["2026-06", "2026-07", "2026-08"]
+    assert r["latest"] == "2026-08"

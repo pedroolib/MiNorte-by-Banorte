@@ -32,6 +32,17 @@ def _s(v) -> str:
     return str(v)
 
 
+def _deep(v):
+    from decimal import Decimal as _D
+    if isinstance(v, _D):
+        return str(v)
+    if isinstance(v, dict):
+        return {kk: _deep(vv) for kk, vv in v.items()}
+    if isinstance(v, (list, tuple)):
+        return [_deep(x) for x in v]
+    return v
+
+
 def _month_arg(month: str | None) -> tuple[int, int]:
     month = month or data.latest_month()
     a, m = map(int, month.split("-"))
@@ -162,6 +173,14 @@ def get_cash_flow(month: str | None = None) -> dict:
     return {"month": f"{a}-{m:02d}", **{k: _s(v) for k, v in cf.items()}}
 
 
+def get_months_with_data() -> dict:
+    """Meses YYYY-MM con transacciones. Úsala antes de analizar un mes:
+    un mes fuera de esta lista NO tiene datos (no lo analices ni compares)."""
+    meses = sorted({f"{t.date.year}-{t.date.month:02d}"
+                    for t in data.get_transactions()})
+    return {"months": meses, "latest": meses[-1] if meses else None}
+
+
 def get_signals(month: str | None = None) -> dict:
     a, m = _month_arg(month)
     s = en.signals(data.get_transactions(), data.get_cfdis(),
@@ -182,6 +201,28 @@ def get_signals(month: str | None = None) -> dict:
         out["advertencia"] = (f"{a}-{m:02d} sin movimientos; "
                               f"último mes con datos: {data.latest_month()}")
     return out
+
+
+def metric_catalog() -> list[dict]:
+    """Catálogo auto-generado desde engine (una entrada por señal)."""
+    return en.metric_catalog()
+
+
+def get_metric(name: str, month: str | None = None) -> dict:
+    """Una métrica por nombre. Desconocida -> error con el catálogo."""
+    a, m = _month_arg(month)
+    s = en.signals(data.get_transactions(), data.get_cfdis(),
+                   data.get_matches(), a, m)
+    if name not in s:
+        disponibles = sorted(metric_catalog(), key=lambda e: e["nombre"])
+        raise ValueError(
+            f"métrica inexistente: {name!r}. Disponibles: "
+            + ", ".join(e["nombre"] for e in disponibles))
+    meta = next(e for e in metric_catalog() if e["nombre"] == name)
+    return {"name": name, "month": f"{a}-{m:02d}",
+            "value": _deep(s[name]),
+            "unidad": meta["unidad"], "familia": meta["familia"],
+            "descripcion": meta["descripcion"]}
 
 
 def get_open_receivables() -> list[dict]:
@@ -331,7 +372,19 @@ _t("sat_get_cfdi", "CFDI por UUID.", {"uuid": _STR}, ["uuid"], sat_get_cfdi)
 _t("get_financial_summary", "Resumen del mes (snapshot o live).",
    {"month": _STR}, ["month"], get_financial_summary)
 _t("get_cash_flow", "Flujo del mes.", {"month": _STR}, [], get_cash_flow)
+_t("get_months_with_data",
+   "Meses YYYY-MM con transacciones + latest. Úsala antes de analizar: "
+   "un mes fuera de la lista NO tiene datos (no analizar ni comparar).",
+   {}, [], get_months_with_data)
 _t("get_signals", "Señales del motor para análisis.", {"month": _STR}, [], get_signals)
+_t("get_metric",
+   "Una métrica por nombre (ver metric_catalog). Con month resuelve ese mes.",
+   {"name": {"type": "string", "description": "nombre exacto del catálogo"},
+    "month": {"type": ["string", "null"], "description": "YYYY-MM o null=último"}},
+   ["name", "month"], get_metric)
+_t("metric_catalog",
+   "Catálogo de métricas disponibles: nombre, descripción, unidad, familia.",
+   {}, [], metric_catalog)
 _t("get_open_receivables", "CxC abiertas con folio y vencimiento.", {}, [], get_open_receivables)
 _t("get_merchants", "Nivel 1: comercios por rubro/monto. Tú decides cuántos traer.",
    {"rubro": {"type": ["string", "null"], "enum": RUBROS + [None],
