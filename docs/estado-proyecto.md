@@ -154,3 +154,17 @@ Flujo spec §3.3 caso 1 + §19, con datos y contratos ya listos:
 * `chat()` con fallback automático (reasoning_effort/temperature) por si
   cambias de modelo. Verificado en vivo todo-astra: $98,500.00 exactos,
   2 tarjetas (hero + bars), 0 discrepancias.
+
+## Proyecciones (motor + tool + regla)
+* `engine.project_next_month`: promedio últimos ≤3 meses con datos (misma
+  base que signals), confianza alta/media/baja + supuestos + base_meses.
+  1 mes = run-rate declarado; mes vacío = sin_base (nunca inventa).
+* Tool MCP `project_next_month` (+ server): ÚNICA vía para hablar de futuro.
+  Consultor: sin llamarla prohibido proyectar; al darla declara método,
+  confianza y supuestos, todo marcado estimado.
+* Verificado en vivo: julio→agosto con base feb+jul (el piloto creció a
+  2 meses: 142 txns feb + 221 jul), -$15,266.57 confianza media + 3 tarjetas.
+* Ojo: `GET /api/summary` (snapshot) vs `signals()` (live) difieren
+  (utilidad jul 39,252.50 vs 47,994.28): convenciones distintas
+  (operativo-sin-internos vs motor). Proyecciones usan signals (live).
+  Pendiente unificar o documentar la diferencia.

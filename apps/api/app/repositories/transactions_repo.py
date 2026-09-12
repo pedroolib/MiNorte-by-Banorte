@@ -71,15 +71,25 @@ def upsert_account(sb: Any, account: dict) -> None:
 def fetch_ordered(sb: Any, company_id: str) -> list[Transaction]:
     # Orden cronológico determinista: los ids son secuenciales en el
     # orden del estado de cuenta (desempata fechas iguales/clamp JUN-30).
-    res = (
-        sb.table("transactions")
-        .select("*")
-        .eq("company_id", company_id)
-        .order("fecha")
-        .order("id")
-        .execute()
-    )
-    return [_to_tx(r) for r in (res.data or [])]
+    # Paginado: PostgREST topa en 1000 filas por request.
+    out: list[Transaction] = []
+    off = 0
+    while True:
+        res = (
+            sb.table("transactions")
+            .select("*")
+            .eq("company_id", company_id)
+            .order("fecha")
+            .order("id")
+            .range(off, off + 999)
+            .execute()
+        )
+        filas = res.data or []
+        out.extend(_to_tx(r) for r in filas)
+        if len(filas) < 1000:
+            break
+        off += 1000
+    return out
 
 
 def count(sb: Any, company_id: str) -> int:

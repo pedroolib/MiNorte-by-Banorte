@@ -158,3 +158,27 @@ def test_cxc_rfc_real_manda_sobre_nombre():
     cfdis = [_cfdi("CUPU Sucursal 1", 3000), _cfdi("CUPU Sucursal 2", 1000)]
     s = en.signals([], cfdis, [], 2026, 8)
     cerca(s["cxc_top_cliente"], "1.0")  # mismo RFC real = un cliente
+
+
+def test_proyeccion_promedio_tres_meses():
+    p = en.project_next_month(TXNS, CFDIS, MATCHES, 2026, 8)
+    assert p["month_proyectado"] == "2026-09"
+    assert p["base_meses"] == ["2026-06", "2026-07", "2026-08"]
+    assert p["metodo"] == "promedio_ventana"
+    assert p["utilidad"] == p["ventas"] - p["gastos"]
+    assert p["confianza"] in ("alta", "media")
+    assert any("3 mes" in s for s in p["supuestos"])
+
+
+def test_proyeccion_un_mes_es_run_rate_con_advertencia():
+    p = en.project_next_month(TXNS, CFDIS, MATCHES, 2026, 6)
+    assert p["month_proyectado"] == "2026-07"
+    assert p["base_meses"] == ["2026-06"] and p["metodo"] == "run_rate"
+    assert p["confianza"] == "baja"
+    assert any("run-rate" in s for s in p["supuestos"])
+
+
+def test_proyeccion_mes_vacio_sin_base():
+    p = en.project_next_month(TXNS, CFDIS, MATCHES, 2026, 1)
+    assert p["utilidad"] is None and p["metodo"] == "sin_base"
+    assert p["confianza"] == "ninguna" and p["base_meses"] == []

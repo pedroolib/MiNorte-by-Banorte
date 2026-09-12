@@ -11,7 +11,7 @@ ESPERADAS = {
     "banorte_get_credit_options", "banorte_compare_loans",
     "sat_list_cfdis", "sat_get_cfdi",
     "get_financial_summary", "get_cash_flow", "get_signals",
-    "get_months_with_data",
+    "get_months_with_data", "project_next_month",
     "get_metric", "metric_catalog",
     "get_open_receivables", "get_variables_gasto", "evaluar_gasto",
     "get_customer_contact", "prepare_payment_reminder",
@@ -115,3 +115,12 @@ def test_get_months_with_data():
     r = T.execute("get_months_with_data", {})
     assert r["months"] == ["2026-06", "2026-07", "2026-08"]
     assert r["latest"] == "2026-08"
+
+
+def test_project_next_month_tool():
+    from app.mcp import tools as T
+
+    p = T.execute("project_next_month", {"month": "2026-08"})
+    assert p["month_proyectado"] == "2026-09"
+    assert set(p) >= {"ventas", "gastos", "utilidad", "metodo",
+                      "confianza", "supuestos", "base_meses"}
