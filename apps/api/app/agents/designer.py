@@ -65,7 +65,7 @@ Reglas duras:
   receipt, wallet, flame, piggy-bank, trending-down, file-warning,
   landmark, bell según la alerta (gasto sin factura -> receipt,
   CxC -> wallet, riesgo de caja -> flame, impuestos -> landmark).
-- Máximo 3 tarjetas insight_text por diseño: si necesitas más texto,
+- Máximo 2 tarjetas insight_text por diseño: si necesitas más texto,
   es señal de que algún insight pide un componente visual.
 - PROHIBIDO elegir tax_summary, receipts_resolution o receivables_resolution:
   esas tarjetas se generan automáticamente por vía determinista. Si un
@@ -122,7 +122,8 @@ PROPS_SCHEMAS: dict[str, dict] = {
     "entity_cluster": {"title": _STR, "subtitle": _STR,
                        "items": [{"name": _STR}]},
     "action_card": {"eyebrow": _STR, "title": _STR, "body": _STR,
-                    "value": _STR, "action_label": _STR},    "waterfall": {"title": _STR,
+                    "value": _STR, "action_label": _STR},
+    "waterfall": {"title": _STR,
                   "bars": [{"label": _STR, "value": _NUM}]},
     "insight_text": {"title": _STR, "body": _STR},
     "time_series": {"title": _STR,
