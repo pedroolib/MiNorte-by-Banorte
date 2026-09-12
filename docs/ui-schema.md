@@ -39,6 +39,11 @@ Si el `component` no existe en el registry, se muestra fallback, nunca crashea.
 con `Number()` antes de formatear. `/cards` = galería con fixtures de cada
 entrada; `/` = vista final curada. La galería NO es el UI final.)
 
+`footnote?` (en los 8 visuales marcados): pie opcional de 1 frase con la
+interpretación del dato. Render: párrafo gris sutil (`text-xs
+text-neutral-500`, margen superior) al pie de la tarjeta. El Diseñador lo
+manda cuando el número solo no se explica; si falta, no se reserva espacio.
+
 ## 3. Payloads reales de ejemplo (datos actuales del seed)
 
 ```json
@@ -51,8 +56,18 @@ entrada; `/` = vista final curada. La galería NO es el UI final.)
   "props": { "count": 4, "total": "2123.00" } }
 ```
 
+```json
+{ "component": "donut_total",
+  "props": { "title": "Efectivo vs por cobrar",
+             "center_value": "$77,844.68", "center_label": "Liquidez total",
+             "segments": [{ "label": "Efectivo", "value": 1294.68 },
+                          { "label": "Por cobrar", "value": 76550.0 }],
+             "footnote": "El 98% de la liquidez está por cobrar, no en caja." } }
+```
+
 (Ojo: los totales viajan como string porque son `Decimal` serializados;
-convertir con `Number()` antes de formatear.)
+convertir con `Number()` antes de formatear. Los visuales aceptan números
+o strings numéricos: el render ya coacciona con `num()`.)
 
 ## 4. Reglas para diseñar componentes
 
@@ -78,6 +93,7 @@ convertir con `Number()` antes de formatear.)
 
 ### Catálogo `signals()` (contrato para el Analista T8)
 
+Base: `ventas`, `gastos`, `utilidad`, `tiene_datos`, `n_movimientos`.
 Crecimiento: `crec_ventas`, `crec_gastos`, `brecha_pp`,
 `ticket_promedio/mediano_ingreso`, `clientes_activos_mes`,
 `clientes_nuevos_mes`, `hhi_ingresos` (0–1).
@@ -87,14 +103,15 @@ Rentabilidad: `margen`, `margen_previo`, `margen_delta_pp`,
 Liquidez: `burn_mensual`, `efectivo`, `runway_dias`,
 `cobertura_gastos_fijos`, `racha_signo` + `racha_meses`,
 `volatilidad_flujo`, `dso_dias`.
-Fiscal: `iva_trasladado`, `iva_acreditable`, `iva_neto`,
+Fiscal: `iva_trasladado`, `iva_acreditable`, `iva_neto`, `isr_estimado`,
 `pct_gasto_deducible`, `brecha_pagos_provision`.
 Comercial: `cxc_total`, `cxc_count`, `cxc_antiguedad_promedio_dias`,
-`cxc_pct_vencida` ("hoy" = fin de mes), `cxc_top_cliente`.
+`cxc_pct_vencida` ("hoy" = fin de mes), `cxc_top_cliente` (por RFC, con
+fallback a nombre si el RFC es genérico XAXX/XAXE o vacío).
 Estructura: `gasto_por_categoria`, `gasto_por_rubro` (por rubro: `total`,
 `n_negocios`, `top1{nombre,total}`, `top1_share`, `hint_drill`),
-`fondeo_interno`, `ratio_fondeo_interno`, `hhi_gasto_proveedores`,
-`masa_salarial_estimada`.
+`margen_bruto_proxy`, `fondeo_interno`, `ratio_fondeo_interno`,
+`hhi_gasto_proveedores`, `masa_salarial_estimada`.
 Todo Decimal como string en JSON; `None` donde no hay base.
 
 Investigación progresiva (herramientas del Consultor): Nivel 0 = signals
@@ -113,7 +130,70 @@ El Diseñador nunca inventa cifras: resuelve por nombre exacto del
 catálogo (`metric_catalog()` en motor, `GET /api/metric` en API);
 nombre inexistente devuelve el catálogo, no null.
 
-## 6. Roadmap (no construir aún)
+## 6. Dashboard generativo (`GET /api/dashboard/gen`)
 
-* `cash_runway` (días de caja: hoy 4), `tax_estimate`, `chat` del Consultor.
-* Validación con zod + Structured Outputs cuando llegue la IA (T8).
+El endpoint devuelve el JSON listo para renderizar (sin página aún).
+Parámetros: `month=YYYY-MM` (default: último con datos), `week=YYYY-Www`
+(default: semana actual). Idempotente por semana: si ya existe, la devuelve
+sin gastar LLM.
+
+```json
+{ "month": "2026-07", "week_id": "2026-W41",
+  "anchors": [ ... 4 ... ],
+  "actions": [ ... 0-3 ... ],
+  "discovery": [ ... 2-5 ... ],
+  "summary": "2-3 frases que conectan lo visible" }
+```
+
+### 6.1 Anchors (siempre 4, con comentario)
+
+Cada anchor trae número del motor + comentario del Analista:
+
+```json
+{ "metric": "revenue", "label": "Ventas", "value": 524769.98,
+  "trend": null,
+  "analyst_comment": "Los cobros del taller están distribuidos de forma desigual..." }
+```
+
+`metric` es uno de `revenue` (ventas), `profit` (utilidad), `cash`
+(efectivo), `estimated_tax` (isr_estimado). `value` es número o null.
+`trend` es `{"direction": "up"|"down"|"flat", "percentage": 8.0}` calculado
+en código mes-vs-mes, o `null` honesto si no hay mes previo (piloto: 1 mes).
+**TODO frontend**: componente `financial_anchor` aún no existe en tipos,
+registry ni fixtures — crearlo con label + valor grande + trend (chip) +
+comentario como subtexto. Ojo: NO usar fila de tabla `| ... |` para
+documentarlo aquí hasta que entre al catálogo congelado (el test
+anti-drift exige doc = tipos = registry = fixtures).
+
+### 6.2 Actions (0–3) y discovery (2–5)
+
+- `actions`: `receipts_resolution` / `receivables_resolution` SOLO si hay
+  algo que resolver (vienen de alertas deterministas; nunca las pide el
+  modelo) + hasta completar 3 con hallazgos críticos accionables. Si hay
+  pendientes, al menos 1 entra siempre.
+- `discovery`: tarjetas del Diseñador que rotan semanalmente (novedad y
+  penalización por repetición con memoria `insight_exposures`). Máximo 2
+  por familia; máximo 2 `insight_text` por diseño; 1 tarjeta por insight.
+- `tax_summary` NO aparece como tarjeta: sus números viven en el anchor
+  `estimated_tax`.
+- Toda tarjeta trae `insight_id` (trazabilidad al insight que la originó)
+  y `rationale` (por qué se eligió ese componente). `tone` usa
+  `positive` | `watch` | `urgent` | `neutral`.
+- `summary`: lo genera el sistema con las tarjetas visibles como contexto;
+  solo conecta lo visible, sin cifras nuevas.
+
+Ejemplo real (piloto julio, semana W41): 4 anchors + `receipts_resolution`
+(46, $111,300.13) + `receivables_resolution` (5, $98,500) + 1 action_card
++ 4 discovery (donut_total, bars_total, multi_ring, hero_number… según la
+semana). Sin problemas: 4 anchors + 4–5 discovery, sin placeholders ni
+tarjetas vacías.
+
+## 7. Roadmap (estado real)
+
+* Hecho (T8): Analista (10 insights + anchors con evidencia), Diseñador
+  (1:1 con validación y reintento), Composition Engine
+  (`GET /api/dashboard/gen`), Consultor (`/chat`), cobranza (T9).
+* Pendiente frontend: página del dashboard contra `/api/dashboard/gen`
+  con `DynamicUI` + componente `financial_anchor` (tipos + registry +
+  fixtures + doc en tabla para entrar al catálogo congelado).
+* Pendiente general: auth/RLS, deploy, más meses de datos del piloto.
