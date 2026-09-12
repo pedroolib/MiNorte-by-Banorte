@@ -173,7 +173,30 @@ export interface ChatResponse {
   conversation_id: string;
   respuesta: string;
   tools_usados: string[];
+  llamadas?: Array<{ tool: string; args: Record<string, unknown> }>;
+  tarjetas?: GenCard[];
   truncado: boolean;
+}
+
+export interface CriticalBar {
+  month: string;
+  pendientes: number;
+  items: GenCard[];
+}
+
+export interface DrillResult {
+  insight_id: string;
+  month: string;
+  texto: string;
+  tarjetas: GenCard[];
+}
+
+export interface SavedScenario {
+  id: string;
+  titulo: string;
+  detalle: string;
+  cifras: Record<string, unknown>;
+  created_at: string;
 }
 
 /** Dashboard generativo (Composition Engine). JSON listo para DynamicUI. */

@@ -1,9 +1,9 @@
-import GenDashboard from "./gen-dashboard";
+import Workspace from "./workspace";
 
 /**
- * `/` — dashboard generativo (Composition Engine).
- * Lo elige todo el pipeline Analista → Diseñador → Composición.
+ * `/` — workspace MiNorte: weekly_dashboard (Analista) + consultant_view
+ * temporal + deep_dive por tarjeta. Lo elige todo el pipeline.
  */
 export default function Page() {
-  return <GenDashboard />;
+  return <Workspace />;
 }

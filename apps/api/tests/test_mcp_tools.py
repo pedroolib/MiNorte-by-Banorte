@@ -41,7 +41,9 @@ def test_impls_formas():
     with pytest.raises(ValueError, match="no existe"):
         T.execute("sat_get_cfdi", {"uuid": "00000000-0000-4000-8000-000000000000"})
     recs = T.execute("get_open_receivables", {})
-    assert len(recs) == 5 and all("folio" in r for r in recs)
+    assert recs["count"] == 5 and len(recs["items"]) == 5
+    assert all("folio" in r for r in recs["items"])
+    assert recs["total"] == "76550.00"  # total determinista incluido
     # con utilidad operativa real (negativa en esta cuenta pagadora),
     # 400k NO es viable: el motor lo dice honesto con ranking completo
     comp = T.execute("banorte_compare_loans", {"amount": "400000"})

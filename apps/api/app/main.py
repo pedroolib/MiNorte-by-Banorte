@@ -548,10 +548,12 @@ def api_chat(body: dict):
         except LLMError as e:
             raise HTTPException(502, f"modelo no disponible: {e}")
         chat_repo.guardar_turno(sb, cid, "asistente", r["respuesta"],
-                                r.get("llamadas", [{"tool": t} for t in r["tools_usados"]]))
+                                r.get("llamadas", [{"tool": t} for t in r["tools_usados"]]),
+                                r.get("tarjetas", []))
         return {"conversation_id": cid, "respuesta": r["respuesta"],
                 "tools_usados": r["tools_usados"],
                 "llamadas": r.get("llamadas", []),
+                "tarjetas": r.get("tarjetas", []),
                 "truncado": r["truncado"]}
     except HTTPException:
         raise
@@ -559,6 +561,9 @@ def api_chat(body: dict):
         if ("PGRST205" in str(e) or "PGRST204" in str(e)
             or "Could not find the table" in str(e)
             or "Could not find the 'family' column" in str(e)):
+            if "'tarjetas'" in str(e):
+                raise HTTPException(
+                    503, f"corre migrations/013_consultant_ui.sql ({e})")
             raise HTTPException(503, f"corre migrations/006_agents.sql ({e})")
         raise
 
@@ -695,6 +700,130 @@ def api_dashboard_gen(month: str | None = None, week: str | None = None):
             raise
         return out
     except HTTPException:
+        raise
+
+
+@app.get("/api/critical-bar")
+def api_critical_bar(month: str | None = None):
+    """Barra compacta de pendientes (lectura, sin LLM).
+
+    Siempre visible sobre cualquier modo: reservadas deterministas +
+    conteo de críticos vigentes. Cuesta ms.
+    """
+    from app.agents import designer as _D
+    from app.mcp import tools as _T
+
+    company_id = get_current_company()
+    month = month or _latest_month()
+    # Solo lo accionable cuenta como pendiente: tax_summary es informativo.
+    reservadas = [c for c in _D.reserved_cards(month, _T.execute)
+                  if c["component"] in ("receipts_resolution",
+                                        "receivables_resolution")]
+    criticos = [c for c in reservadas]
+    try:
+        sig = _T.get_signals(month).get("signals", {})
+        if (sig.get("runway_dias") is not None
+                and sig["runway_dias"] <= 7):
+            criticos.append({"insight_id": f"{month}_caja",
+                             "component": "insight_text",
+                             "props": {"title": "Caja crítica",
+                                       "body": f"{sig['runway_dias']} días de caja.",
+                                       "tone": "urgent"},
+                             "rationale": "determinista: runway<=7"})
+    except Exception:
+        pass
+    return {"month": month, "pendientes": len(criticos),
+            "items": criticos}
+
+
+@app.get("/api/drill")
+def api_drill(insight_id: str, month: str | None = None):
+    """Deep-dive v1 determinista: evidencia del insight + drill.
+
+    Resuelve el insight guardado, corre Nivel 0/1/2 (merchants) y devuelve
+    tarjetas deterministas + texto del Consultor interpretando (1 llamada
+    barata sin tools: todo el contexto viaja en el prompt).
+    """
+    from fastapi import HTTPException
+
+    from app.agents import llm as _llm
+    from app.config import get_settings as _gs
+    from app.mcp import tools as _T
+    from app.repositories import analyst_repo as _ar
+
+    sb = _sb_or_503()
+    company_id = get_current_company()
+    month = month or _latest_month()
+    insights = _ar.listar(sb, company_id, month)
+    ins = next((i for i in insights if i.get("id") == insight_id), None)
+    if not ins:
+        raise HTTPException(404, "insight no existe en ese mes")
+    tarjetas: list[dict] = []
+    contexto = [f"Insight: {ins.get('titulo')} — {ins.get('detalle')}"]
+    for e in (ins.get("evidencia") or [])[:4]:
+        contexto.append(f"- {e.get('señal')} = {e.get('valor')} "
+                        f"{e.get('unidad', '')}")
+    # Drill determinista por rubro si la evidencia lo sugiere
+    try:
+        merchants = _T.get_merchants(limit=5, month=month)
+        if merchants:
+            top = merchants[:4]
+            tarjetas.append({
+                "insight_id": f"{insight_id}_drill", "component": "bars_total",
+                "props": {"title": "Top comercios relacionados",
+                          "total": str(sum(float(str(m.get('total', 0)))
+                                           for m in top)),
+                          "values": [float(str(m.get("total", 0)))
+                                     for m in top],
+                          "labels": [str(m.get("nombre", "?"))[:12]
+                                     for m in top],
+                          "footnote": "Desglose determinista del rubro."},
+                "rationale": "determinista: drill Nivel 1"})
+            contexto.append("Top comercios: " + ", ".join(
+                f"{m.get('nombre')} ({m.get('total')})" for m in top))
+    except Exception:
+        pass
+    try:
+        r = _llm.chat(
+            [{"role": "user", "content":
+              "Explica en 2-3 frases en español simple, para un dueño que "
+              "no sabe de finanzas, este hallazgo y qué hacer. Sin cifras "
+              "nuevas, solo conecta lo visible:\n" + "\n".join(contexto)}],
+            model=_gs().OPENAI_FAST_MODEL)
+        texto = r.content or ""
+    except _llm.LLMError as e:
+        raise HTTPException(502, f"modelo no disponible: {e}")
+    return {"insight_id": insight_id, "month": month, "texto": texto,
+            "tarjetas": tarjetas}
+
+
+@app.get("/api/scenarios")
+def api_scenarios_list():
+    """Escenarios guardados (origen propio, separados de insights)."""
+    from app.repositories import scenario_repo as _sr
+
+    sb = _sb_or_503()
+    return {"items": _sr.listar(sb, get_current_company())}
+
+
+@app.post("/api/scenarios")
+def api_scenarios_save(body: dict):
+    """Guarda una simulación como escenario persistente."""
+    from fastapi import HTTPException
+
+    from app.repositories import scenario_repo as _sr
+
+    sb = _sb_or_503()
+    company_id = get_current_company()
+    try:
+        row = _sr.guardar(sb, company_id, body.get("conversation_id"),
+                          body.get("titulo", ""), body.get("detalle", ""),
+                          body.get("cifras", {}))
+        return row
+    except Exception as e:
+        if "PGRST205" in str(e) or "Could not find the table" in str(e):
+            raise HTTPException(
+                503, f"corre migrations/013_consultant_ui.sql ({e})")
         raise
 
 

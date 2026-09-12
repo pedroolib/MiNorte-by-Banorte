@@ -251,3 +251,56 @@ def test_footnote_llano_y_corto():
                               "segments": [{"label": "L", "value": 1}],
                               "footnote": "El HHI muestra volatilidad alta."})
     assert any("tecnicismos" in e for e in G.validate_choice(jerga, ["donut_total"]))
+
+
+def test_exact_false_cantidad_libre(monkeypatch):
+    import app.agents.designer as G
+    fake = _fake(monkeypatch, {"cards": [_card("a1"), _card("a1b", "insight_text"),
+                                         _card("a1c", "hero_number")]})
+    out = G.design([{"id": "a1"}], ["hero_number", "insight_text"], exact=False)
+    assert len(out["cards"]) == 3  # sin 1:1, las que hagan falta
+    assert fake.visto["pedidos"] == [None]  # sin reintento
+
+
+def test_normaliza_strings_numericos():
+    import app.agents.designer as G
+    c = {"insight_id": "a1", "component": "progress_list",
+         "props": {"title": "T",
+                   "items": [{"label": "L", "percent": "62%"}]},
+         "rationale": "x"}
+    G._normalizar(c)
+    assert c["props"]["items"][0]["percent"] == 62.0
+    assert G.validate_choice(c, ["progress_list"]) == []
+    c2 = {"insight_id": "a1", "component": "progress_list",
+          "props": {"title": "T",
+                    "items": [{"label": "L", "percent": "mucho"}]},
+          "rationale": "x"}
+    G._normalizar(c2)
+    assert any("percent" in e for e in G.validate_choice(c2, ["progress_list"]))
+
+
+def test_partial_devuelve_validas(monkeypatch):
+    import app.agents.designer as G
+    mala = _card("a2", "insight_text")
+    mala["props"] = {"title": "T"}  # sin body: irreparable aquí
+    fake = _fake(monkeypatch, {"cards": [_card("a1"), mala]},
+                 {"cards": [mala]})
+    out = G.design([{"id": "a1"}, {"id": "a2"}],
+                   ["hero_number", "insight_text"],
+                   exact=False, partial=True)
+    assert [c["insight_id"] for c in out["cards"]] == ["a1"]
+    with pytest.raises(Exception, match="tras reintento"):
+        _fake(monkeypatch, {"cards": [mala]}, {"cards": [mala]})
+        G.design([{"id": "a2"}], ["hero_number", "insight_text"],
+                 exact=False, partial=False)
+
+
+def test_poda_items_incompletos():
+    import app.agents.designer as G
+    c = {"insight_id": "a1", "component": "progress_list",
+         "props": {"title": "T",
+                   "items": [{"label": "L"}, {"label": "M", "percent": 50}]},
+         "rationale": "x"}
+    G._normalizar(c)
+    assert c["props"]["items"] == [{"label": "M", "percent": 50}]
+    assert G.validate_choice(c, ["progress_list"]) == []
