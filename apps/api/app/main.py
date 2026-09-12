@@ -5,7 +5,8 @@
   determinístico real llega en T4)
 """
 
-from datetime import datetime
+from collections import defaultdict
+from datetime import datetime, timedelta
 from decimal import Decimal
 from functools import lru_cache
 from pathlib import Path
@@ -34,7 +35,7 @@ app = FastAPI(title=settings.APP_NAME, version="0.1.0")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
+    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -236,6 +237,125 @@ def api_summary():
         gastos_sin_cfdi_total=sin_total,
         updated_at=datetime.now(MX_TZ),
     )
+
+
+@app.get("/api/dashboard")
+def api_dashboard():
+    """Contrato agregado para el dashboard MiNorte.
+
+    Todos los importes y series salen del mismo source of truth que el motor:
+    Supabase cuando está configurado y poblado; seed bancario como fallback.
+    La UI no calcula contabilidad ni contiene cifras de demostración quemadas.
+    """
+    txns = _seed()
+    cfdis = _cfdis()
+    matches = _live_matches()
+    latest = max(t.date for t in txns)
+    latest_month = f"{latest.year}-{latest.month:02d}"
+    current = [t for t in txns if (t.date.year, t.date.month) == (latest.year, latest.month)]
+
+    month_keys = sorted({(t.date.year, t.date.month) for t in txns})[-6:]
+    monthly = []
+    for year, month in month_keys:
+        sales, expenses, margin = engine.banco_mes(txns, year, month)
+        monthly.append({
+            "month": f"{year}-{month:02d}",
+            "sales": sales,
+            "expenses": expenses,
+            "profit": sales - expenses,
+            "margin": margin,
+            "cash": engine.efectivo_a_fin_de_mes(txns, year, month),
+        })
+
+    by_day: dict[str, dict] = {}
+    for t in current:
+        key = t.date.date().isoformat()
+        row = by_day.setdefault(key, {
+            "date": key, "income": Decimal("0"), "expenses": Decimal("0"),
+            "balance": None, "count": 0,
+        })
+        row["income" if t.type == "ingreso" else "expenses"] += t.amount
+        if t.balance is not None:
+            row["balance"] = t.balance
+        row["count"] += 1
+    daily = [by_day[key] for key in sorted(by_day)]
+
+    expense_groups: dict[str, Decimal] = defaultdict(lambda: Decimal("0"))
+    customer_groups: dict[str, Decimal] = defaultdict(lambda: Decimal("0"))
+    for t in current:
+        if t.type == "egreso" and not t.es_interno:
+            expense_groups[t.rubro or t.categoria or "por_clasificar"] += t.amount
+        if t.type == "ingreso" and not t.es_interno:
+            customer_groups[t.merchant_name or "Cliente"] += t.amount
+
+    total_expenses = sum(expense_groups.values(), Decimal("0"))
+    total_customers = sum(customer_groups.values(), Decimal("0"))
+    categories = [{
+        "name": name, "amount": amount,
+        "percent": (amount / total_expenses) if total_expenses else Decimal("0"),
+    } for name, amount in sorted(expense_groups.items(), key=lambda item: item[1], reverse=True)]
+    customers = [{
+        "name": name, "amount": amount,
+        "percent": (amount / total_customers) if total_customers else Decimal("0"),
+    } for name, amount in sorted(customer_groups.items(), key=lambda item: item[1], reverse=True)]
+
+    start_activity = latest.date() - timedelta(days=34)
+    activity_counts: dict[str, int] = defaultdict(int)
+    for t in txns:
+        if start_activity <= t.date.date() <= latest.date():
+            activity_counts[t.date.date().isoformat()] += 1
+    activity = []
+    for offset in range(35):
+        day = start_activity + timedelta(days=offset)
+        activity.append({"date": day.isoformat(), "count": activity_counts[day.isoformat()]})
+
+    recent = [{
+        "id": t.id,
+        "date": t.date.isoformat(),
+        "description": t.description,
+        "merchant": t.merchant_name,
+        "amount": t.amount,
+        "type": t.type,
+        "category": t.rubro or t.categoria,
+    } for t in sorted(txns, key=lambda item: (item.date, item.id), reverse=True)[:6]]
+
+    match_counts = {"auto": 0, "review": 0, "unmatched": 0}
+    for match in matches:
+        match_counts[match.status] += 1
+
+    summary = api_summary().model_dump(mode="json")
+    receivables = api_receivables()
+    alerts = api_alerts(latest_month)
+    signal_values = engine.signals(txns, cfdis, matches, latest.year, latest.month)
+
+    def _json(value):
+        if isinstance(value, Decimal):
+            return str(value)
+        if isinstance(value, dict):
+            return {key: _json(item) for key, item in value.items()}
+        if isinstance(value, list):
+            return [_json(item) for item in value]
+        return value
+
+    return _json({
+        "month": latest_month,
+        "updated_at": datetime.now(MX_TZ).isoformat(),
+        "summary": summary,
+        "signals": signal_values,
+        "alerts": alerts["items"],
+        "receivables": receivables,
+        "matches": {"counts": match_counts},
+        "monthly": monthly,
+        "daily": daily,
+        "categories": categories,
+        "customers": customers,
+        "recent_transactions": recent,
+        "activity": activity,
+        "cfdis": {
+            "issued": sum(1 for c in cfdis if c.tipo == "emitido"),
+            "received": sum(1 for c in cfdis if c.tipo == "recibido"),
+        },
+    })
 
 
 # ==================== Cobranza (T9) ====================

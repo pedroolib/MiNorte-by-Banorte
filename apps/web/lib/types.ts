@@ -2,15 +2,69 @@
 
 export interface FinancialSummary {
   company_id: string;
-  ventas: number;
-  gastos: number;
-  utilidad: number;
-  efectivo: number;
-  impuesto_estimado: number;
-  cuentas_por_cobrar: number;
+  ventas: number | string;
+  gastos: number | string;
+  utilidad: number | string;
+  efectivo: number | string;
+  impuesto_estimado: number | string;
+  cuentas_por_cobrar: number | string;
   gastos_sin_cfdi_count: number;
-  gastos_sin_cfdi_total: number;
+  gastos_sin_cfdi_total: number | string;
   updated_at: string | null;
+}
+
+export interface DashboardSeriesPoint {
+  month: string;
+  sales: string;
+  expenses: string;
+  profit: string;
+  margin: string;
+  cash: string;
+}
+
+export interface DashboardDailyPoint {
+  date: string;
+  income: string;
+  expenses: string;
+  balance: string | null;
+  count: number;
+}
+
+export interface DashboardGroup {
+  name: string;
+  amount: string;
+  percent: string;
+}
+
+export interface DashboardTransaction {
+  id: string;
+  date: string;
+  description: string;
+  merchant: string;
+  amount: string;
+  type: "ingreso" | "egreso";
+  category: string;
+}
+
+export interface DashboardData {
+  month: string;
+  updated_at: string;
+  summary: FinancialSummary;
+  signals: SignalSet;
+  alerts: Alert[];
+  receivables: {
+    total: number;
+    total_pending: string;
+    items: ReceivableItem[];
+  };
+  matches: { counts: Record<"auto" | "review" | "unmatched", number> };
+  monthly: DashboardSeriesPoint[];
+  daily: DashboardDailyPoint[];
+  categories: DashboardGroup[];
+  customers: DashboardGroup[];
+  recent_transactions: DashboardTransaction[];
+  activity: { date: string; count: number }[];
+  cfdis: { issued: number; received: number };
 }
 
 /** Alerta del Analista (T4/T5). Totales llegan como string (Decimal JSON). */
