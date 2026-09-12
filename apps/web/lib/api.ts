@@ -2,6 +2,7 @@ import type {
   Alert,
   CfdiItem,
   ContactItem,
+  DashboardData,
   DraftItem,
   FinancialSummary,
   MatchItem,
@@ -22,6 +23,8 @@ export const fetchHealth = () =>
   get<{ status: string; company_id: string }>("/health");
 
 export const fetchSummary = () => get<FinancialSummary>("/api/summary");
+
+export const fetchDashboard = () => get<DashboardData>("/api/dashboard");
 
 export const fetchAlerts = (month?: string) =>
   get<{ month: string; items: Alert[] }>(
