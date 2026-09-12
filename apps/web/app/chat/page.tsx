@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { Markdown } from "@/components/markdown";
 import { sendChat } from "@/lib/api";
 import type { ChatMessage } from "@/lib/types";
 
@@ -102,7 +103,11 @@ export default function Chat() {
                 textAlign: "left",
               }}
             >
-              {m.content}
+              {m.role === "assistant" ? (
+                <Markdown text={m.content} />
+              ) : (
+                m.content
+              )}
             </div>
             {m.tools && m.tools.length > 0 && (
               <div style={{ fontSize: 11, color: "#666", marginTop: 4 }}>

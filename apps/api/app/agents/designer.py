@@ -277,7 +277,44 @@ def validate_choice(choice: dict, components: list[str]) -> list[str]:
                            "dueño que no sabe de finanzas")
     if not choice.get("insight_id"):
         errores.append("falta insight_id (trazabilidad)")
+    errores.extend(_checa_consistencia(comp, props))
     return errores
+
+
+def _checa_consistencia(comp: str, props: dict) -> list[str]:
+    """Correspondencia label↔valor: la suma debe cuadrar con el total.
+
+    Mata la falla vista en vivo (values [3,2,4,0,1] = índices de ranking
+    en vez de montos, con total 98500): los números existían en el MCP
+    pero no correspondían. Regla: sum(values) ≈ total.
+    """
+    if comp == "bars_total":
+        total = _a_num(props.get("total"))
+        vals = [v for v in (_a_num(x) for x in props.get("values", []))
+                if v is not None]
+        if total is not None and vals and len(vals) == len(props["values"]):
+            if abs(sum(vals) - total) > max(1.0, abs(total) * 0.005):
+                return [f"bars_total no cuadra: suman {sum(vals)} "
+                        f"pero total dice {props.get('total')} "
+                        "(values deben ser los montos, no índices)"]
+        import re as _re
+        texto = f"{props.get('title', '')} {props.get('footnote', '')}".lower()
+        if (vals and len(vals) == len(props["values"])
+                and _re.search(r"mayor|menor|top|ranking|reparte|ordena|concentra", texto)):
+            tol = max(1.0, abs(total or 0.0) * 0.005)
+            if any(b - a > tol for a, b in zip(vals, vals[1:])):
+                return ["bars_total dice orden (mayor a menor) pero values "
+                        "no van descendentes: reordena labels+values juntos"]
+    if comp == "donut_total":
+        centro = _a_num(props.get("center_value"))
+        segs = [v for v in (_a_num(s.get("value"))
+                            for s in props.get("segments", []))
+                if v is not None]
+        if centro is not None and segs and len(segs) == len(props["segments"]):
+            if abs(sum(segs) - centro) > max(1.0, abs(centro) * 0.005):
+                return [f"donut_total no cuadra: segmentos suman {sum(segs)} "
+                        f"pero el centro dice {props.get('center_value')}"]
+    return []
 
 
 def _a_num(v):
