@@ -5,6 +5,7 @@ import {
   ActionCard,
   BanorteBestLoans,
   BarsTotal,
+  DataTable,
   DonutTotal,
   EntityCluster,
   FinancialAnchor,
@@ -30,6 +31,7 @@ import {
 
 const REGISTRY: Record<UISchema["component"], React.FC<any>> = {
   financial_anchor: FinancialAnchor,
+  data_table: DataTable,
   receivables_resolution: ReceivablesResolution,
   receipts_resolution: ReceiptsResolution,
   hero_number: HeroNumber,

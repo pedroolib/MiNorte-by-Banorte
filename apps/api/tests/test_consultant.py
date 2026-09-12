@@ -125,7 +125,7 @@ def test_tarjetas_cantidad_libre(monkeypatch):
     import app.agents.consultant as C
     from app.agents import designer as D
     visto = {}
-    def _ok(cards, components, executor=None, model=None, brief="", exact=True, partial=False, extra_check=None, max_text=2):
+    def _ok(cards, components, executor=None, model=None, brief="", exact=True, partial=False, extra_check=None, max_text=2, min_cards=0):
         visto["n"] = len(cards)
         visto["exact"] = exact
         visto["brief"] = brief
@@ -135,7 +135,7 @@ def test_tarjetas_cantidad_libre(monkeypatch):
     monkeypatch.setattr(D, "design", _ok)
     out = C._tarjetas("cuánto debo", "debes 5", True, lambda n, a: {})
     assert len(out) == 2 and visto["n"] == 1  # 1 insight, N tarjetas
-    assert visto["exact"] is False and "al menos 1 tarjeta" in visto["brief"]
+    assert visto["exact"] is False and "MÍNIMO 4" in visto["brief"]
 
 
 def test_validar_cifras_verbatim():
@@ -226,13 +226,18 @@ def test_consulta_max_una_texto(monkeypatch):
     visto = {}
 
     def _ok(cards, components, executor=None, model=None, brief="",
-            exact=True, partial=False, extra_check=None, max_text=2):
+            exact=True, partial=False, extra_check=None, max_text=2,
+            min_cards=0):
         visto["max_text"] = max_text
+        visto["min_cards"] = min_cards
+        visto["brief"] = brief
         return {"cards": []}
 
     monkeypatch.setattr(D, "design", _ok)
     assert C._tarjetas("q", "r", True, lambda n, a: {}, []) == []
     assert visto["max_text"] == 1  # consulta: visual primero
+    assert visto["min_cards"] == 4  # mínimo 4 por respuesta
+    assert "MÍNIMO 4" in visto["brief"]
 
 
 def test_cifras_texto_solo_montos():

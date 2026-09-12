@@ -424,6 +424,9 @@ def _tarjetas(pregunta: str, respuesta: str, con_datos: bool,
     from app.agents import designer as D
 
     tabla, mapa = tabla_datos(resultados or [])
+    pide_tabla = any(w in pregunta.lower()
+                     for w in ("tabla", "listado", "lista", "desglosa",
+                               "detalle por", "quiénes", "quienes"))
     pseudo = [{"id": "consulta", "severity": "info",
                "titulo": pregunta[:120], "detalle": respuesta[:400],
                "payload": {"kind": "consulta", "evidencia": [],
@@ -441,15 +444,18 @@ def _tarjetas(pregunta: str, respuesta: str, con_datos: bool,
     try:
         out = D.design(
             pseudo, componentes, executor=executor, exact=False,
-            partial=True, extra_check=_cifras, max_text=1,
-            brief=("Responde visualmente la pregunta con al menos 1 tarjeta "
-                   "y las demás que hagan falta, sin límite máximo: la "
-                   "respuesta directa más relacionadas que aporten "
-                   "contexto o datos curiosos con base en lo consultado. "
+            partial=True, extra_check=_cifras, max_text=1, min_cards=4,
+            brief=("Responde visualmente la pregunta con MÍNIMO 4 tarjetas, "
+                   "sin límite máximo: la respuesta directa (tabla o "
+                   "detalle) más relacionadas con datos que ya existen "
+                   "(volatilidad, concentración, DSO, antigüedad, runway, "
+                   "margen...). "
                    "Todas con las firmas del catálogo. Prioriza componentes "
                    "visuales (números, gráficas, rankings); insight_text "
-                   "solo como último recurso si nada visual calza. "
-                   "Para CADA cifra en "
+                   "máximo 1 y solo si nada visual calza. "
+                   + ("El usuario pidió explícitamente una TABLA: usa "
+                      "data_table con columns y rows. " if pide_tabla else "")
+                   + "Para CADA cifra en "
                    "props escribe la ruta de payload.tabla con = inicial "
                    "(p. ej. value: '=get_open_receivables.total'); el "
                    "sistema la sustituye por el valor exacto. Prohibido "

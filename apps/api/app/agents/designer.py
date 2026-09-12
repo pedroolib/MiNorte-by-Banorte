@@ -66,6 +66,7 @@ Reglas duras:
   ranking por partida -> progress_list;
   composición que suma/resta -> waterfall;
   varios porcentajes -> multi_ring;
+  listado de registros/filas (clientes, facturas, movimientos) -> data_table;
   llamado a actuar -> action_card;
   solo texto/interpretación sin número -> insight_text.
 - Los componentes visuales aceptan footnote opcional para la explicación
@@ -169,6 +170,8 @@ PROPS_SCHEMAS: dict[str, dict] = {
     "financial_anchor": {"metric": _STR, "label": _STR,
                          "value": (_NUM, _STR, type(None)),
                          "analyst_comment": _STR},
+    "data_table": {"title": _STR, "columns": [_STR],
+                   "rows": [[(_STR, _NUM)]]},
 }
 
 
@@ -187,10 +190,17 @@ def _es_num(v) -> bool:
 def _checa(valor, spec, ruta: str) -> str | None:
     """None si cumple; descripción del problema si no."""
     if isinstance(spec, tuple):  # enum de tipos o valores
-        if all(isinstance(x, type) for x in spec):
-            if isinstance(valor, bool) or not isinstance(valor, spec):
-                nombres = " o ".join(x.__name__ for x in spec)
-                return f"{ruta} debe ser {nombres}"
+        tipos = tuple(str if x == _STR else float if x == _NUM else x
+                      for x in spec)
+        if all(isinstance(x, type) for x in tipos):
+            if isinstance(valor, bool):
+                return f"{ruta} debe ser número o texto"
+            if isinstance(valor, tipos):
+                return None
+            if float in tipos and _a_num(valor) is not None:
+                return None
+            nombres = " o ".join(x.__name__ for x in tipos)
+            return f"{ruta} debe ser {nombres}"
         elif valor not in spec:
             return f"{ruta} debe ser uno de {list(spec)}, llegó {valor!r}"
         return None
@@ -346,7 +356,7 @@ def design(insights: list[dict], components: list[str],
            executor=None, model: str | None = None,
            brief: str = "", exact: bool = True,
            partial: bool = False, extra_check=None,
-           max_text: int = MAX_TEXT) -> dict:
+           max_text: int = MAX_TEXT, min_cards: int = 0) -> dict:
     """Insights rankeados -> [{insight_id, component, props, rationale}].
 
     components: catálogo congelado (viene de ui-schema.ts, no hardcodeado).
@@ -401,7 +411,7 @@ def design(insights: list[dict], components: list[str],
     out = llm.chat_json(
         [{"role": "system", "content": system2},
          {"role": "user", "content": base + "\n\nDatos extra:\n" + gather}],
-        _cards_schema(components, min_items=0 if exact else 1),
+        _cards_schema(components, min_items=0 if exact else min_cards),
         elige_modelo, strict=False)
     validas, fallidas = _partir(out.get("cards", []), components,
                                 extra_check, max_text)

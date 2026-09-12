@@ -140,3 +140,23 @@ def test_responses_loop_error_tool_corrige(monkeypatch):
     defs = [L.ToolDef("t", "d", {"type": "object", "properties": {}})]
     texto, audit, _ = L._responses_loop("s", [], defs, _boom, "m", 8)
     assert texto == "ok" and audit[0]["error"] == "sin datos"
+
+
+def test_responses_reenvia_salida_completa(monkeypatch):
+    """La API exige el item reasoning junto a cada function_call."""
+    import app.agents.llm as L
+
+    class _Rs:
+        def __init__(self):
+            self.type = "reasoning"
+            self.id = "rs_1"
+
+    fake = FakeResponses([[ _Rs(), _Fn("c1", "get_x", '{"a": 1}') ],
+                          [ _MsgOut("ok") ]])
+    monkeypatch.setattr(L, "_client", lambda: fake)
+    defs = [L.ToolDef("get_x", "d", {"type": "object", "properties": {}})]
+    L._responses_loop("s", [], defs, lambda n, a: {"v": 1}, "m", 8)
+    entrada = fake.llamadas[1]["input"]
+    tipos = [getattr(it, "type", None) or it.get("type") for it in entrada]
+    assert tipos.count("reasoning") == 1 and tipos.count("function_call") == 1
+    assert tipos[-1] == "function_call_output"

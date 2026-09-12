@@ -18,6 +18,15 @@ export type UISchema =
       };
     }
   | {
+      component: "data_table";
+      props: {
+        title: string;
+        columns: string[];
+        rows: (string | number)[][];
+        footnote?: string;
+      };
+    }
+  | {
       component: "receivables_resolution";
       props: { count: number; total: string };
     }
