@@ -16,6 +16,7 @@ from app.agents.llm import ToolDef
 from app.config import get_settings
 from app.financial import engine as en
 from app.financial import reconcile as rc
+from app.financial.categorias import RUBROS
 from app.operator import collections as op
 
 OBJ = {"type": "object", "properties": {}, "required": [],
@@ -199,6 +200,26 @@ def get_open_receivables() -> list[dict]:
     return out
 
 
+def get_merchants(rubro: str | None = None, min_total: str | None = None,
+                  limit: int | None = 50, month: str | None = None) -> list[dict]:
+    """Nivel 1: detalle por comercio (filtrable). El agente decide cuántos."""
+    a, m = _month_arg(month)
+    filas = en.merchants_por_rubro(data.get_transactions(), a, m, rubro,
+                                   Decimal(min_total) if min_total else 0,
+                                   int(limit or 50))
+    return [{**f, "total": _s(f["total"])} for f in filas]
+
+
+def get_merchant_detail(nombre: str, month: str | None = None) -> dict:
+    """Nivel 2: serie mensual + recurrencia de un comercio (caza-fugas)."""
+    a, m = _month_arg(month)
+    d = en.merchant_detail(data.get_transactions(), nombre, a, m)
+    d["serie"] = [{**s, "total": _s(s["total"])} for s in d["serie"]]
+    d["ticket_promedio_mensual"] = _s(d["ticket_promedio_mensual"])
+    d["total_periodo"] = _s(d["total_periodo"])
+    return d
+
+
 def simulate_hiring(monthly_cost: str | None, month: str | None = None) -> dict:
     if not monthly_cost:
         raise ValueError("monthly_cost requerido")
@@ -292,6 +313,13 @@ _t("get_financial_summary", "Resumen del mes (snapshot o live).",
 _t("get_cash_flow", "Flujo del mes.", {"month": _STR}, [], get_cash_flow)
 _t("get_signals", "Señales del motor para análisis.", {"month": _STR}, [], get_signals)
 _t("get_open_receivables", "CxC abiertas con folio y vencimiento.", {}, [], get_open_receivables)
+_t("get_merchants", "Nivel 1: comercios por rubro/monto. Tú decides cuántos traer.",
+   {"rubro": {"type": ["string", "null"], "enum": RUBROS + [None],
+              "description": "código de rubro o null para todos"},
+    "min_total": _NUM, "limit": _INT, "month": _STR},
+   ["rubro", "min_total", "limit", "month"], get_merchants)
+_t("get_merchant_detail", "Nivel 2: serie mensual + recurrencia de un comercio.",
+   {"nombre": _STR, "month": _STR}, ["nombre", "month"], get_merchant_detail)
 _t("simulate_hiring", "¿Aguanta una contratación mensual?",
    {"monthly_cost": _NUM}, ["monthly_cost"], simulate_hiring)
 _t("simulate_loan", "Amortización francesa + cobertura.",

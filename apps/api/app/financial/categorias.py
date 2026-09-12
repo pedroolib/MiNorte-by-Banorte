@@ -101,6 +101,24 @@ def rubro_por_clave(clave: str | None) -> str | None:
     return SAT_MAP.get(clave.strip())
 
 
+_ARTICULOS = {"de", "del", "la", "el", "los", "las", "en", "y"}
+
+
+def normalizar_rubro(valor: str | None) -> str | None:
+    """Nombre mostrado o aproximado -> código ('Proveedores de materiales'
+    -> 'proveedores_materiales'). Desconocido -> ValueError que enseña."""
+    import unicodedata
+
+    if valor is None:
+        return None
+    base = unicodedata.normalize("NFKD", valor.strip().lower())
+    base = "".join(c for c in base if not unicodedata.combining(c))
+    codigo = "_".join(t for t in re.split(r"[^a-z0-9]+", base) if t and t not in _ARTICULOS)
+    if codigo in RUBROS:
+        return codigo
+    raise ValueError(f"rubro inválido {valor!r}; válidos: {sorted(RUBROS)}")
+
+
 def clasificar_rubro(descripcion: str, merchant: str = "",
                      categoria: str = "", cfdi_clave: str | None = None,
                      tipo: str = "egreso") -> str:

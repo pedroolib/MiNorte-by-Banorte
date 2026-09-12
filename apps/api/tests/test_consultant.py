@@ -26,8 +26,9 @@ def test_ask_pasa_historial_y_tools(monkeypatch):
     monkeypatch.setattr(C.llm, "run_tool_loop", fake.run_tool_loop)
     out = C.ask("¿contrato?", [{"role": "user", "content": "hola"}],
                 executor=lambda n, a: {}, model="m")
-    assert out == {"respuesta": "ok", "tools_usados": ["simulate_hiring"],
-                   "truncado": False}
+    assert out["respuesta"] == "ok"
+    assert out["tools_usados"] == ["simulate_hiring"]
+    assert out["truncado"] is False
     assert fake.visto["history"][-1] == {"role": "user", "content": "¿contrato?"}
     assert fake.visto["n_tools"] == len(consultant.CONSULTANT_TOOLS)
     assert fake.visto["temperature"] == 0.2  # factual, no creativo
@@ -81,3 +82,18 @@ def test_system_prohibe_alucinaciones_vistas():
     assert "cxc_pct_vencida" in C.SYSTEM
     assert "JAMÁS calcules ni inventes cifras" in C.SYSTEM
     assert "PROHIBIDO inventar" in C._perfil_block({"giro": "X"})
+
+
+def test_ask_devuelve_llamadas_con_args(monkeypatch):
+    import app.agents.consultant as C
+
+    class F:
+        def run_tool_loop(self, system, history, tools, executor, model=None,
+                          max_steps=8, **k):
+            return "ok", [{"tool": "get_merchants",
+                           "args": {"rubro": "proveedores_materiales"}}], False
+
+    monkeypatch.setattr(C.llm, "run_tool_loop", F().run_tool_loop)
+    out = C.ask("hola")
+    assert out["llamadas"] == [{"tool": "get_merchants",
+                                "args": {"rubro": "proveedores_materiales"}}]

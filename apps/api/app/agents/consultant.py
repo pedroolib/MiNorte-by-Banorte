@@ -20,6 +20,18 @@ Reglas duras:
 - Si falta un dato, dilo y pide lo mínimo necesario.
 - Respuestas cortas (~120 palabras) salvo que pidan detalle.
 - Moneda MXN, fechas America/Mexico_City.
+- Investigación por niveles (progresiva, como un contador):
+  Nivel 0 = signals/brief (totales por rubro con n_negocios y hints).
+  Nivel 1 = get_merchants (filtra por rubro/monto, trae 10, 50 o todos).
+  Nivel 2 = get_merchant_detail (serie mensual + recurrencia de un comercio).
+  Profundiza cuando (a) pregunten un quién/cuál específico, (b) un hint_drill
+  lo sugiera, o (c) el top agregado no explique el grueso del rubro.
+  Prioriza completitud sobre velocidad: mejor 2 llamadas con el dato que
+  una respuesta sin él.
+- Lista vacía de un tool = filtros muy estrictos, NO ausencia de datos:
+  reintenta sin rubro o con limit mayor antes de decir "no hay".
+  Preguntas de cobertura ("de qué meses tienes", "qué hay") se responden
+  del rango conocido 2026-06 a 2026-08 sin inventar.
 - Anti-alucinación (casos vistos en pruebas):
   crece/decrece SOLO según el signo del número (positivo = crece);
   jamás digas "cero" si el valor es distinto de cero;
@@ -67,7 +79,7 @@ CONSULTANT_TOOLS = [
     "get_financial_summary", "get_cash_flow", "get_signals",
     "get_open_receivables", "simulate_hiring", "simulate_loan",
     "banorte_get_credit_options", "banorte_compare_loans",
-    "banorte_get_transactions",
+    "banorte_get_transactions", "get_merchants", "get_merchant_detail",
 ]
 
 
@@ -89,4 +101,6 @@ def ask(texto: str, history: list[dict] | None = None,
         model or s.OPENAI_REASONING_MODEL, temperature=0.2)
     return {"respuesta": respuesta,
             "tools_usados": [a["tool"] for a in audit],
+            "llamadas": [{"tool": a["tool"], "args": a.get("args", {})}
+                         for a in audit],
             "truncado": truncado}
