@@ -33,6 +33,8 @@ class Transaction(BaseModel):
     es_interno: bool = False
     # Categoría heurística (banorte_csv.clasificar). T4 la refina.
     categoria: str = "otro"
+    # Rubro de gasto PyME (financial/categorias.py). Back-fill desde CFDI.
+    rubro: str = "por_clasificar"
 
     @field_validator("merchant_rfc", mode="before")
     @classmethod

@@ -170,7 +170,7 @@ def api_signals(month: str | None = None):
     """
     month = month or _latest_month()
     anio, mes = map(int, month.split("-"))
-    s = engine.signals(_seed(), anio, mes)
+    s = engine.signals(_seed(), _cfdis(), _live_matches(), anio, mes)
 
     def _j(v):
         if isinstance(v, Decimal):

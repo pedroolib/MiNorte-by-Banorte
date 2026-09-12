@@ -3,7 +3,7 @@
  <cfdi:Emisor Rfc="SEG971124JJ1" Nombre="ISAAC R. LUNA" RegimenFiscal="601"/>
  <cfdi:Receptor Rfc="CNM160812AB1" Nombre="CAFE NORTENO SA DE CV" DomicilioFiscalReceptor="76087" RegimenFiscalReceptor="601" UsoCFDI="G03"/>
  <cfdi:Conceptos>
-  <cfdi:Concepto ClaveProdServ="72101500" Cantidad="1" ClaveUnidad="E48" Descripcion="PAGO A PROVEEDOR ORDEN 2398" ValorUnitario="5112.91" Importe="5112.91"/>
+  <cfdi:Concepto ClaveProdServ="31161500" Cantidad="1" ClaveUnidad="E48" Descripcion="PAGO A PROVEEDOR ORDEN 2398" ValorUnitario="5112.91" Importe="5112.91"/>
  </cfdi:Conceptos>
  <cfdi:Impuestos TotalImpuestosTrasladados="818.07">
   <cfdi:Traslados>

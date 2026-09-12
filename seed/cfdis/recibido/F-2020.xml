@@ -3,7 +3,7 @@
  <cfdi:Emisor Rfc="GAS070423BB2" Nombre="PEDRO A. RUIZ" RegimenFiscal="601"/>
  <cfdi:Receptor Rfc="CNM160812AB1" Nombre="CAFE NORTENO SA DE CV" DomicilioFiscalReceptor="76087" RegimenFiscalReceptor="601" UsoCFDI="G03"/>
  <cfdi:Conceptos>
-  <cfdi:Concepto ClaveProdServ="72101500" Cantidad="1" ClaveUnidad="E48" Descripcion="PAGO A PROVEEDOR ORDEN 2150" ValorUnitario="13389.68" Importe="13389.68"/>
+  <cfdi:Concepto ClaveProdServ="78101800" Cantidad="1" ClaveUnidad="E48" Descripcion="PAGO A PROVEEDOR ORDEN 2150" ValorUnitario="13389.68" Importe="13389.68"/>
  </cfdi:Conceptos>
  <cfdi:Impuestos TotalImpuestosTrasladados="2142.35">
   <cfdi:Traslados>

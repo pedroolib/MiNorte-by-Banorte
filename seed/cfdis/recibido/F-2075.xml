@@ -3,7 +3,7 @@
  <cfdi:Emisor Rfc="PAY150323GG7" Nombre="MARTIN MEDINA" RegimenFiscal="601"/>
  <cfdi:Receptor Rfc="CNM160812AB1" Nombre="CAFE NORTENO SA DE CV" DomicilioFiscalReceptor="76087" RegimenFiscalReceptor="601" UsoCFDI="G03"/>
  <cfdi:Conceptos>
-  <cfdi:Concepto ClaveProdServ="72101500" Cantidad="1" ClaveUnidad="E48" Descripcion="PAGO A PROVEEDOR ORDEN 2341" ValorUnitario="3698.28" Importe="3698.28"/>
+  <cfdi:Concepto ClaveProdServ="31161500" Cantidad="1" ClaveUnidad="E48" Descripcion="PAGO A PROVEEDOR ORDEN 2341" ValorUnitario="3698.28" Importe="3698.28"/>
  </cfdi:Conceptos>
  <cfdi:Impuestos TotalImpuestosTrasladados="591.72">
   <cfdi:Traslados>

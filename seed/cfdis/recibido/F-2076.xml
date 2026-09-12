@@ -3,7 +3,7 @@
  <cfdi:Emisor Rfc="CENP050211MN7" Nombre="TERCERO CENP05" RegimenFiscal="612"/>
  <cfdi:Receptor Rfc="CNM160812AB1" Nombre="CAFE NORTENO SA DE CV" DomicilioFiscalReceptor="76087" RegimenFiscalReceptor="601" UsoCFDI="G03"/>
  <cfdi:Conceptos>
-  <cfdi:Concepto ClaveProdServ="72101500" Cantidad="1" ClaveUnidad="E48" Descripcion="PAGO A PROVEEDOR ORDEN 2342" ValorUnitario="1376.29" Importe="1376.29"/>
+  <cfdi:Concepto ClaveProdServ="78101800" Cantidad="1" ClaveUnidad="E48" Descripcion="PAGO A PROVEEDOR ORDEN 2342" ValorUnitario="1376.29" Importe="1376.29"/>
  </cfdi:Conceptos>
  <cfdi:Impuestos TotalImpuestosTrasladados="220.21">
   <cfdi:Traslados>

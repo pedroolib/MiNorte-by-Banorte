@@ -54,6 +54,27 @@ def main() -> None:
     # 1. reconciliación global (±15 días cross-mes) + CxC
     matches = rc.conciliar(txns, cfdis)
     fr.upsert_matches(sb, company_id, matches)
+    # 1b. back-fill de rubro: el CFDI conciliado manda (ClaveProdServ).
+    # Upsert de filas COMPLETAS (Postgres exige NOT NULL aun en conflicto).
+    from app.financial.categorias import rubro_por_clave
+    por_uuid = {c.uuid: c for c in cfdis}
+    por_txn = {t.id: t for t in txns}
+    n_rubro = 0
+    for m in matches:
+        if m.status in ("auto", "review") and m.cfdi_id:
+            c = por_uuid.get(m.cfdi_id)
+            t = por_txn.get(m.transaction_id)
+            # solo egresos: el rubro es categoría de gasto (el mix de
+            # ingresos se lee directo de los emitidos, no del movimiento)
+            if c and c.clave_prodserv and t and t.type == "egreso":
+                rubro = rubro_por_clave(c.clave_prodserv)
+                if rubro and t.rubro != rubro:
+                    t.rubro = rubro
+                    n_rubro += 1
+    if n_rubro:
+        tr.upsert_transactions(sb, txns)
+        txns = tr.fetch_ordered(sb, company_id)  # refrescar para snapshots/signals
+    print(f"back-fill rubro: {n_rubro} movimientos")
     recs = rc.detectar_cxc(cfdis, matches, company_id)
     fr.upsert_receivables(sb, recs)
     auto = sum(1 for m in matches if m.status == "auto")
@@ -85,7 +106,7 @@ def main() -> None:
         fr.delete_month_alerts(sb, company_id, mes_id)  # reemplazo: sin fantasmas
         fr.upsert_alerts(sb, alertas)
         sin = next((a for a in alertas if a["rule"] == "sin_factura"), None)
-        sig = en.signals(txns, anio, mes)
+        sig = en.signals(txns, cfdis, matches, anio, mes)
 
         def _js(v):
             if isinstance(v, Decimal):

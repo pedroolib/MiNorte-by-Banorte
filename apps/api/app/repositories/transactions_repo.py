@@ -26,6 +26,7 @@ def _row(t: Transaction) -> dict:
         "saldo": str(t.balance) if t.balance is not None else None,
         "es_interno": t.es_interno,
         "categoria": t.categoria,
+        "rubro": t.rubro,
     }
 
 
@@ -45,6 +46,7 @@ def _to_tx(r: dict) -> Transaction:
         source="banorte_mock",
         es_interno=bool(r.get("es_interno")),
         categoria=r.get("categoria") or "otro",
+        rubro=r.get("rubro") or "por_clasificar",
     )
 
 

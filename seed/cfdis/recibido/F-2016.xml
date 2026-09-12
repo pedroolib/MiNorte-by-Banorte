@@ -3,7 +3,7 @@
  <cfdi:Emisor Rfc="COS910715KK2" Nombre="CARLOS R. VEGA" RegimenFiscal="601"/>
  <cfdi:Receptor Rfc="CNM160812AB1" Nombre="CAFE NORTENO SA DE CV" DomicilioFiscalReceptor="76087" RegimenFiscalReceptor="601" UsoCFDI="G03"/>
  <cfdi:Conceptos>
-  <cfdi:Concepto ClaveProdServ="72101500" Cantidad="1" ClaveUnidad="E48" Descripcion="PAGO A PROVEEDOR ORDEN 2036" ValorUnitario="4401.11" Importe="4401.11"/>
+  <cfdi:Concepto ClaveProdServ="78101800" Cantidad="1" ClaveUnidad="E48" Descripcion="PAGO A PROVEEDOR ORDEN 2036" ValorUnitario="4401.11" Importe="4401.11"/>
  </cfdi:Conceptos>
  <cfdi:Impuestos TotalImpuestosTrasladados="704.18">
   <cfdi:Traslados>

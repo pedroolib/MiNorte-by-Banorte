@@ -47,11 +47,14 @@ def seed_skeleton(sb: Any, company_id: str, clientes: list[dict]) -> int:
     """
     n = 0
     for c in clientes:
-        row = {"company_id": company_id,
-               "customer_rfc": c["customer_rfc"].upper().strip(),
-               "customer_name": c.get("customer_name", ""),
-               "email": (c.get("email") or "").strip() or None,
-               "phone": c.get("phone", "")}
+        rfc = c["customer_rfc"].upper().strip()
+        previo = get_contact(sb, company_id, rfc) or {}
+        # jamás pisar un email capturado con vacío (el seed no manda)
+        email = (c.get("email") or "").strip() or (previo.get("email") or None)
+        phone = c.get("phone", "") or previo.get("phone", "")
+        row = {"company_id": company_id, "customer_rfc": rfc,
+               "customer_name": c.get("customer_name", "") or previo.get("customer_name", ""),
+               "email": email, "phone": phone}
         (sb.table("customer_contacts")
          .upsert(row, on_conflict="company_id,customer_rfc").execute())
         n += 1

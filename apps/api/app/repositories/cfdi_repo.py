@@ -28,6 +28,8 @@ def _row(c: Cfdi) -> dict:
         "forma_pago": c.forma_pago,
         "moneda": c.moneda,
         "uso_cfdi": c.uso_cfdi,
+        "clave_prodserv": c.clave_prodserv,
+        "clave_unidad": c.clave_unidad,
     }
 
 def upsert_cfdis(sb: Any, cfdis: list[Cfdi], batch: int = 200) -> int:
@@ -52,6 +54,8 @@ def to_cfdi(r: dict, company_id: str) -> Cfdi:
         folio=r.get("folio"), metodo_pago=r.get("metodo_pago"),
         forma_pago=r.get("forma_pago"), moneda=r.get("moneda") or "MXN",
         uso_cfdi=r.get("uso_cfdi"),
+        clave_prodserv=r.get("clave_prodserv"),
+        clave_unidad=r.get("clave_unidad"),
     )
 
 
