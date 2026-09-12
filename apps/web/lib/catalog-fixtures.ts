@@ -68,6 +68,14 @@ export const CATALOG: CatalogEntry[] = [
           costo_total: "82342.56",
           plazo_meses: 24,
         },
+        {
+          id: "cred_avio",
+          nombre: "Crédito Avío",
+          tasa_anual: "0.2150",
+          pago_mensual: "38120.10",
+          costo_total: "57441.20",
+          plazo_meses: 12,
+        },
       ],
       top_ids: ["cred_simple_negocios"],
       rationale:
@@ -93,12 +101,13 @@ export const CATALOG: CatalogEntry[] = [
     props: {
       items: [
         { label: "Gasto deducible", value: 96.2 },
+        { label: "Cobrado del mes", value: 62.0 },
         { label: "Margen del mes", value: -2.0 },
       ],
-      footnote: "96% deducible sostiene el flujo; el margen sigue en rojo.",
+      footnote: "96% deducible y 62% cobrado sostienen el flujo; el margen sigue en rojo.",
     },
     title: "Anillos múltiples",
-    source: "signals.pct_gasto_deducible (0.9623) + signals.margen (-0.0200)",
+    source: "signals.pct_gasto_deducible (0.9623) + margen (-0.0200); 3er anillo de muestra",
   },
   {
     component: "bars_total",
@@ -223,20 +232,22 @@ export const CATALOG: CatalogEntry[] = [
     component: "transactions_list",
     props: {
       items: [
-        { id: "txn_2026080472", merchant: "BANORTE", category: "comision", date: "2026-08-31T12:00:00", amount: "400.00", type: "egreso" },
-        { id: "txn_2026080473", merchant: "BANORTE", category: "comision", date: "2026-08-31T12:00:00", amount: "64.00", type: "egreso" },
-        { id: "txn_2026080458", merchant: "BANORTE", category: "comision", date: "2026-08-31T12:00:00", amount: "5.00", type: "egreso" },
-        { id: "txn_2026080459", merchant: "BANORTE", category: "iva_comision", date: "2026-08-31T12:00:00", amount: "0.80", type: "egreso" },
+        { id: "txn_2026080302", merchant: "TRANSPORTES DEL PACIFICO SA DE CV", category: "spei_recibido", date: "2026-08-02T12:00:00", amount: "3724.76", type: "ingreso" },
+        { id: "txn_2026080303", merchant: "CAFE NORTENO SA DE CV", category: "traspaso_interno", date: "2026-08-03T12:00:00", amount: "10000.00", type: "ingreso" },
+        { id: "txn_2026080323", merchant: "CAFE NORTENO SA DE CV", category: "traspaso_interno", date: "2026-08-06T12:00:00", amount: "20000.00", type: "ingreso" },
+        { id: "txn_2026080297", merchant: "COMPRA ORDEN DE PAGO SPEI", category: "spei_enviado", date: "2026-08-01T12:00:00", amount: "2784.00", type: "egreso" },
+        { id: "txn_2026080300", merchant: "CARGO DOMICILIACION", category: "domiciliacion", date: "2026-08-02T12:00:00", amount: "348.99", type: "egreso" },
+        { id: "txn_2026080301", merchant: "CARGO DOMICILIACION", category: "domiciliacion", date: "2026-08-02T12:00:00", amount: "4852.50", type: "egreso" },
       ],
     },
     title: "Movimientos recientes",
-    source: "Filas reales seed/transactions.csv (31-ago, IDs verificados)",
+    source: "Filas reales seed/transactions.csv (ago, IDs y montos verificados)",
   },
   {
     component: "timeline_list",
     props: {
       items: [
-        { id: "A-1001", customer_name: "CONSTRUCTORA VIA NORTE", due_date: "2026-09-12", issued_at: "2026-08-13", amount_pending: "18500.00", status: "open" },
+        { id: "A-1001", customer_name: "CONSTRUCTORA VIA NORTE", due_date: "2026-08-28", issued_at: "2026-08-13", amount_pending: "18500.00", status: "overdue" },
         { id: "A-1002", customer_name: "DISTRIBUIDORA DEL NORTE", due_date: "2026-09-15", issued_at: "2026-08-16", amount_pending: "16200.00", status: "open" },
         { id: "A-1003", customer_name: "TRANSPORTES DEL PACIFICO", due_date: "2026-09-18", issued_at: "2026-08-19", amount_pending: "14850.00", status: "open" },
         { id: "A-1004", customer_name: "COMERCIALIZADORA DEL BAJIO", due_date: "2026-09-20", issued_at: "2026-08-21", amount_pending: "14200.00", status: "open" },
@@ -244,12 +255,12 @@ export const CATALOG: CatalogEntry[] = [
       ],
     },
     title: "Próximos cobros",
-    source: "5 clientes reales; partición ilustrativa que suma $76,550.00 exactos",
+    source: "5 clientes reales (1 vencida para mostrar el badge); partición ilustrativa que suma $76,550.00 exactos",
   },
   {
     component: "tax_summary",
-    props: { isr_estimado: "0.00", iva_neto: "-36876.40", pct_deducible: 0.962 },
+    props: { isr_estimado: "18898.28", iva_neto: "3323.96", pct_deducible: 0.303 },
     title: "Resumen fiscal",
-    source: "ISR 0 (utilidad negativa ago) + signals.iva_neto + pct_gasto_deducible (0.9623)",
+    source: "Piloto julio verificado en vivo (ISR + IVA neto + 30.3% deducible)",
   },
 ];
