@@ -1,0 +1,16 @@
+[
+  {
+    "account_id": "acc_eje_001",
+    "company_id": "company_001",
+    "alias": "Cuenta Eje Banorte",
+    "clabe": "072580012345678901",
+    "moneda": "MXN"
+  },
+  {
+    "account_id": "acc_nom_001",
+    "company_id": "company_001",
+    "alias": "Cuenta Nómina Banorte",
+    "clabe": "072580012345678902",
+    "moneda": "MXN"
+  }
+]

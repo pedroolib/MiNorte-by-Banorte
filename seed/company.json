@@ -1,0 +1,10 @@
+{
+  "company_id": "company_001",
+  "rfc": "CNM160812AB1",
+  "razon_social": "CAFE NORTENO SA DE CV",
+  "nombre_comercial": "Café Norteño",
+  "regimen_fiscal": "601",
+  "email": "contacto@cafenorteno.mx",
+  "moneda": "MXN",
+  "timezone": "America/Mexico_City"
+}
