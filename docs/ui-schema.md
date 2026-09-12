@@ -52,10 +52,17 @@ convertir con `Number()` antes de formatear.)
 ## 5. Fuentes de datos (ver todo crudo en `/debug`)
 
 * `GET /api/summary` — métricas del mes.
-* `GET /api/alerts?month=2026-08` — alertas con `payload.component`.
+* `GET /api/alerts?month=2026-08` — alertas **deterministas** con `payload.component`.
+* `GET /api/signals?month=2026-08` — señales numéricas (crecimientos, margen,
+  runway, fondeo interno): es lo que la IA recibe para decidir qué tarjetas mostrar.
 * `GET /api/receivables` — las 5 CxC con cliente, monto, vencimiento.
 * `GET /api/matches?status=unmatched` — los 4 gastos sin factura.
 * Detalle fila-por-fila: `seed/transactions.csv` + tablas Supabase.
+
+Nota de arquitectura: las tarjetas finales las elige la IA compositora a
+partir de señales + alertas + su interpretación (tabla separada
+`analyst_insights` en T8). Este catálogo define los componentes disponibles,
+no cuáles se muestran.
 
 ## 6. Roadmap (no construir aún)
 

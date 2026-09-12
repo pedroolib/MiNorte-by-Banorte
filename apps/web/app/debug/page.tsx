@@ -7,6 +7,7 @@ import {
   fetchHealth,
   fetchMatches,
   fetchReceivables,
+  fetchSignals,
   fetchSummary,
 } from "@/lib/api";
 
@@ -63,6 +64,7 @@ export default function Debug() {
   const alerts06 = useQuery({ queryKey: ["alerts", MESES[0]], queryFn: () => fetchAlerts(MESES[0]) });
   const alerts07 = useQuery({ queryKey: ["alerts", MESES[1]], queryFn: () => fetchAlerts(MESES[1]) });
   const alerts08 = useQuery({ queryKey: ["alerts", MESES[2]], queryFn: () => fetchAlerts(MESES[2]) });
+  const signals = useQuery({ queryKey: ["signals"], queryFn: () => fetchSignals() });
 
   return (
     <main style={{ maxWidth: 900, margin: "0 auto", padding: 16, fontFamily: "monospace" }}>
@@ -164,7 +166,13 @@ export default function Debug() {
         )}
       </Section>
 
-      <Section title="7. Movimientos (473 filas)">
+      <Section title="7. Señales del motor para el Analista (GET /api/signals)">
+        <Status isLoading={signals.isLoading} error={signals.error} />
+        {signals.data && <pre>{JSON.stringify(signals.data, null, 2)}</pre>}
+        <p>Fórmulas sin juicio: es lo que la IA recibirá para decidir tarjetas.</p>
+      </Section>
+
+      <Section title="8. Movimientos (473 filas)">
         <p>
           Sin endpoint de detalle (a propósito). Ver <code>seed/transactions.csv</code> o
           tabla <code>transactions</code> en Supabase.

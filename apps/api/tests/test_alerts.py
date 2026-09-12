@@ -1,4 +1,8 @@
-"""Tests de reglas del Analista: cada regla dispara y calla cuando debe."""
+"""Tests de alertas deterministas (hechos accionables, sin interpretación).
+
+Las tendencias y el runway viven como SEÑALES (engine.signals, ver
+test_signals.py): el Analista decide qué merece alerta.
+"""
 
 from datetime import datetime
 from decimal import Decimal
@@ -56,29 +60,19 @@ def test_sin_factura_y_cxc():
     assert rules["sin_factura"]["payload"]["component"] == "receipts_resolution"
 
 
-def test_tendencias_mom():
-    # jul: ventas 10k gastos 6k (margen 40%). ago: ventas 10.4k (+4%) gastos 8.8k (+46%)
+def test_solo_reglas_deterministas():
+    """Nada interpretativo sale del generador (eso lo decide el Analista)."""
+    from app.financial.alerts import REGLAS
+    assert set(REGLAS) == {"sin_factura", "cuentas_por_cobrar"}
     txns = [
-        T("j1", 7, 1, "ingreso", "10000", cat="spei_recibido", balance="10000"),
-        T("j2", 7, 2, "egreso", "6000", balance="4000"),
         T("a1", 8, 1, "ingreso", "10400", cat="spei_recibido", balance="14400"),
         T("a2", 8, 2, "egreso", "8800", balance="5600"),
     ]
     als = al.generar_alertas(txns, [], [], 2026, 8, CID)
-    rules = {a["rule"]: a for a in als}
-    assert "gasto_vs_ventas" in rules  # 46% - 4% > 10pp
-    assert "margen_caida" in rules     # 40% -> 15.4% > 3pp
-    assert "Gastos 47%" in rules["gasto_vs_ventas"]["detalle"] or "46%" in rules["gasto_vs_ventas"]["detalle"]
+    assert als == []
 
 
-def test_efectivo_bajo_critico_y_silencio():
-    # burn 9k/mes, caja 1k -> ~3 días -> critical
-    txns = [T("a1", 8, 1, "ingreso", "1000", cat="spei_recibido", balance="10000"),
-            T("a2", 8, 2, "egreso", "9000", balance="1000")]
-    als = al.generar_alertas(txns, [], [], 2026, 8, CID)
-    eb = next(a for a in als if a["rule"] == "efectivo_bajo")
-    assert eb["severity"] == "critical" and "~3 días" in eb["titulo"]
-    # negocio sano y sin pendientes: sin alertas
+def test_negocio_sano_sin_alertas():
     sanos = [T("s1", 8, 1, "ingreso", "10000", cat="spei_recibido", balance="20000"),
              T("s2", 8, 2, "egreso", "5000", balance="15000")]
     ms = rc.conciliar(sanos, [C("u", "5000.00", 8, 2)])

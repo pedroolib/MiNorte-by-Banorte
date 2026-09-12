@@ -135,9 +135,16 @@ def _jalert(a: dict) -> dict:
     return {**a, "total": str(a["total"]) if a["total"] is not None else None}
 
 
+def _solo_deterministas(items: list[dict]) -> list[dict]:
+    """La tabla alerts es solo hechos; lo interpretativo vive en el Analista."""
+    from app.financial.alerts import REGLAS
+
+    return [a for a in items if a.get("rule") in REGLAS]
+
+
 @app.get("/api/alerts")
 def api_alerts(month: str | None = None):
-    """Alertas accionables del Analista (T5). Lee tabla, fallback live."""
+    """Alertas deterministas accionables (T5). Lee tabla, fallback live."""
     company_id = get_current_company()
     month = month or _latest_month()
     sb = get_supabase()
@@ -145,10 +152,31 @@ def api_alerts(month: str | None = None):
         try:
             got = fr.fetch_alerts(sb, company_id, month)
             if got:
-                return {"month": month, "items": [_jalert(a) for a in got]}
+                return {"month": month, "items": [_jalert(a) for a in _solo_deterministas(got)]}
         except Exception as e:
             print(f"[warn] alerts Supabase no disponible ({e}); live")
     return {"month": month, "items": [_jalert(a) for a in _alertas_live(month)]}
+
+
+@app.get("/api/signals")
+def api_signals(month: str | None = None):
+    """Señales numéricas del motor para el Analista (fórmulas, sin juicio).
+
+    Es lo que la IA recibirá en T8 junto con las alertas para decidir
+    qué tarjetas mostrar en la UI generativa.
+    """
+    month = month or _latest_month()
+    anio, mes = map(int, month.split("-"))
+    s = engine.signals(_seed(), anio, mes)
+
+    def _j(v):
+        if isinstance(v, Decimal):
+            return str(v)
+        if isinstance(v, dict):
+            return {k: _j(x) for k, x in v.items()}
+        return v
+
+    return {"month": month, "signals": {k: _j(v) for k, v in s.items()}}
 
 
 @app.get("/api/receivables")

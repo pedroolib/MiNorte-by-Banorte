@@ -60,3 +60,8 @@ export interface CfdiItem {
   serie: string | null;
   folio: string | null;
 }
+
+/** Señales numéricas del motor para el Analista (T4/T5, sin juicio). */
+export interface SignalSet {
+  [key: string]: string | number | null | Record<string, string>;
+}

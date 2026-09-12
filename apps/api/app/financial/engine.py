@@ -175,3 +175,67 @@ def simulate_loan(utilidad_mensual: Decimal, amount: Decimal,
 def ultimo_dia_con_saldo(txns: list[Transaction]) -> date | None:
     ordenados = sorted(txns, key=lambda t: (t.date, t.id))
     return ordenados[-1].date.date() if ordenados else None
+
+
+def banco_mes(txns: list[Transaction], anio: int, mes: int) -> tuple[Decimal, Decimal, Decimal]:
+    """Totales bancarios del mes (todo flujo) + margen. Análisis horizontal."""
+    fm = [t for t in txns if t.date.year == anio and t.date.month == mes]
+    ventas = sum((t.amount for t in fm if t.type == "ingreso"), CERO)
+    gastos = sum((t.amount for t in fm if t.type == "egreso"), CERO)
+    margen = ((ventas - gastos) / ventas) if ventas > 0 else CERO
+    return ventas, gastos, margen
+
+
+def efectivo_a_fin_de_mes(txns: list[Transaction], anio: int, mes: int) -> Decimal:
+    """Último saldo bancario con fecha dentro del mes."""
+    previas = sorted(
+        (t for t in txns if (t.date.year, t.date.month) <= (anio, mes)
+         and t.balance is not None),
+        key=lambda t: (t.date, t.id),
+    )
+    return previas[-1].balance if previas else CERO
+
+
+def signals(txns: list[Transaction], anio: int, mes: int) -> dict:
+    """Señales numéricas para el Analista (fórmulas estándar, sin juicio).
+
+    - Tasas de crecimiento MoM (análisis horizontal) + brecha en pp.
+    - Margen del mes y delta vs previo en pp.
+    - runway_dias = efectivo / (burn/30) (cash runway estándar).
+    - Grado de apalancamiento operativo DOL = %Δutilidad / %Δventas.
+    - Concentración del gasto por categoría y dependencia de fondeo interno.
+    El Analista decide cuáles merecen alerta y tarjeta en la UI.
+    """
+    ventas, gastos, margen = banco_mes(txns, anio, mes)
+    prev_m, prev_a = (mes - 1, anio) if mes > 1 else (12, anio - 1)
+    pv, pg, pm = banco_mes(txns, prev_a, prev_m)
+    con_previo = not (pv == 0 and pg == 0)
+    cv = mom(pv, ventas) if con_previo else None
+    cg = mom(pg, gastos) if con_previo else None
+    cf = cash_flow(txns, anio, mes)
+    burn = -cf["neto"] if cf["neto"] < 0 else CERO
+    efectivo = efectivo_a_fin_de_mes(txns, anio, mes)
+    por_cat: dict[str, Decimal] = {}
+    for t in del_mes(txns, anio, mes):
+        if t.type == "egreso" and not t.es_interno:
+            por_cat[t.categoria] = por_cat.get(t.categoria, CERO) + t.amount
+    dep_int = sum((t.amount for t in del_mes(txns, anio, mes)
+                   if t.type == "ingreso" and t.es_interno), CERO)
+    # DOL con cuidado: sin base o sin cambio en ventas no se define
+    dol = None
+    if con_previo and cv:
+        util_prev = pv - pg
+        du = mom(util_prev, ventas - gastos)
+        dol = (du / cv) if du is not None else None
+    return {
+        "crec_ventas": cv, "crec_gastos": cg,
+        "brecha_pp": (cg - cv) if (cv is not None and cg is not None) else None,
+        "margen": margen, "margen_previo": pm if con_previo else None,
+        "margen_delta_pp": (margen - pm) if con_previo else None,
+        "burn_mensual": burn, "efectivo": efectivo,
+        "runway_dias": int(efectivo / (burn / 30)) if burn > 0 else None,
+        "operating_leverage": dol,
+        "gasto_por_categoria": por_cat,
+        "fondeo_interno": dep_int,
+        "ratio_fondeo_interno": (dep_int / ventas) if ventas > 0 else CERO,
+    }
