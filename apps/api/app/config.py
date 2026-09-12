@@ -30,6 +30,7 @@ class Settings(BaseSettings):
     OPENAI_API_KEY: str = ""
     MAIL_PROVIDER: str = "log"  # log | resend
     RESEND_API_KEY: str = ""
+    MAIL_FROM: str = ""  # ej. cobranza@tudominio.com (dominio verificado)
 
 
 @lru_cache

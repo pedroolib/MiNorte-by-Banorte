@@ -65,3 +65,26 @@ export interface CfdiItem {
 export interface SignalSet {
   [key: string]: string | number | null | Record<string, string>;
 }
+
+/** Borrador de cobranza (T9). */
+export interface DraftItem {
+  receivable_id: string;
+  to: string | null;
+  contact_status: "listo" | "falta_email";
+  subject: string;
+  body: string;
+}
+
+/** Resultado por factura del envío (T9, parcial por diseño). */
+export interface SendItem extends DraftItem {
+  status: "enviada" | "bloqueada_falta_email" | "omitida_24h" | "fallida";
+  detail: string;
+}
+
+/** Contacto del directorio (T9). */
+export interface ContactItem {
+  customer_rfc: string;
+  customer_name: string;
+  email: string | null;
+  phone: string | null;
+}

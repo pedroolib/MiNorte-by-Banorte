@@ -24,7 +24,7 @@ from app.db import get_supabase  # noqa: E402
 from app.integrations.banking.banorte_csv import cargar_csv  # noqa: E402
 from app.integrations.sat import cfdi_xml as cx  # noqa: E402
 from app.repositories import transactions_repo as repo  # noqa: E402
-from app.repositories import cfdi_repo  # noqa: E402
+from app.repositories import cfdi_repo, collections_repo as colrepo  # noqa: E402
 
 # Flujo neto esperado por mes (depósitos - retiros del resumen;
 # las devoluciones viajan como ingreso neto, el neto no miente).
@@ -101,6 +101,26 @@ def main() -> None:
     print(f"upsert cfdis={n_cfdi} (emitidos={n_emi} recibidos={n_cfdi - n_emi})")
     assert cfdi_repo.count(sb, company_id, "emitido") == n_emi
     assert cfdi_repo.count(sb, company_id, "recibido") == n_cfdi - n_emi
+
+    # 5. directorio esqueleto: receptores de emitidos con email NULL,
+    # salvo override en seed/private/contacts.json {RFC: {email, phone}}
+    # (PII local, nunca en git: alta manual o importación lo llenan).
+    vistos: dict[str, str] = {}
+    for c in cfdis:
+        if c.tipo == "emitido":
+            vistos.setdefault(c.receptor_rfc, c.receptor_nombre)
+    extra = {}
+    priv = REPO / "seed" / "private" / "contacts.json"
+    if priv.exists():
+        extra = json.loads(priv.read_text())
+        print(f"override contactos desde {priv}")
+    n_con = colrepo.seed_skeleton(sb, company_id, [
+        {"customer_rfc": rfc, "customer_name": nom,
+         "email": (extra.get(rfc) or {}).get("email", ""),
+         "phone": (extra.get(rfc) or {}).get("phone", "")}
+        for rfc, nom in vistos.items()])
+    print(f"contactos={n_con} (con email: "
+          f"{sum(1 for r in (extra or {}) if (extra[r] or {}).get('email'))})")
     print("load_seed OK")
 
 
