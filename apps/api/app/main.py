@@ -213,8 +213,8 @@ def api_summary():
     txns = _seed()
     ultimo = max(t.date for t in txns)
     mes = [t for t in txns if (t.date.year, t.date.month) == (ultimo.year, ultimo.month)]
-    ventas = sum((t.amount for t in mes if t.type == "ingreso"), Decimal("0"))
-    gastos = sum((t.amount for t in mes if t.type == "egreso"), Decimal("0"))
+    ventas = sum((t.amount for t in mes if t.type == "ingreso" and not t.es_interno), Decimal("0"))
+    gastos = sum((t.amount for t in mes if t.type == "egreso" and not t.es_interno), Decimal("0"))
     utilidad = ventas - gastos
     ordenados = sorted(txns, key=lambda t: (t.date, t.id))
     efectivo = ordenados[-1].balance or Decimal("0")
@@ -583,8 +583,8 @@ def api_loans_apply(body: dict):
     txns = _seed()
     a, m = map(int, _latest_month().split("-"))
     fm = [t for t in txns if (t.date.year, t.date.month) == (a, m)]
-    util = sum((t.amount for t in fm if t.type == "ingreso"), _D("0")) - sum(
-        (t.amount for t in fm if t.type == "egreso"), _D("0"))
+    util = sum((t.amount for t in fm if t.type == "ingreso" and not t.es_interno), _D("0")) - sum(
+        (t.amount for t in fm if t.type == "egreso" and not t.es_interno), _D("0"))
     pago = _en.amortizar_francesa(monto, _D(op["tasa_anual"]) / 12, int(meses))
     total_intereses = pago * int(meses) - monto
     cobertura = (util / pago) if pago > 0 else None

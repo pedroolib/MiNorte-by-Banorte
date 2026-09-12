@@ -94,9 +94,10 @@ def main() -> None:
         mes_id = f"{anio}-{mes:02d}"
         inc = en.income_statement(txns, anio, mes)   # operativo (sin internos)
         fm = en.del_mes(txns, anio, mes)
-        # totales bancarios para el dashboard (coherentes con el spec)
-        ventas_b = sum((t.amount for t in fm if t.type == "ingreso"), Decimal("0"))
-        gastos_b = sum((t.amount for t in fm if t.type == "egreso"), Decimal("0"))
+        # ventas/gastos sin traspasos internos (regla del engine: no son
+        # flujo operativo; p.ej. abonos chequera->TDC no son ventas)
+        ventas_b = sum((t.amount for t in fm if t.type == "ingreso" and not t.es_interno), Decimal("0"))
+        gastos_b = sum((t.amount for t in fm if t.type == "egreso" and not t.es_interno), Decimal("0"))
         cf = en.cash_flow(txns, anio, mes)
         met = en.metrics(txns, anio, mes)
         tax = en.estimate_taxes(txns, anio, mes)

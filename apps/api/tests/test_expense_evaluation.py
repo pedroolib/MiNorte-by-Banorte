@@ -51,9 +51,9 @@ def test_empleado_viable_y_no_viable():
     r = evaluar_gasto(fixture(), "empleado",
                       V(monthly_cost_total=("2000", "MXN")), month="2026-07")
     assert r["veredicto"] == "viable" and r["monthly_max"] == Decimal("2000")
-    # baseline bancaria julio: utilidad 10000-7000=3000
-    assert r["baseline"]["fuente"] == "caja_bancaria"
-    assert r["baseline"]["utilidad"] == Decimal("3000")
+    # baseline operativa julio: 10000 - 6000 = 4000 (interno de 1000 excluido)
+    assert r["baseline"]["fuente"] == "caja_operativa"
+    assert r["baseline"]["utilidad"] == Decimal("4000")
     r2 = evaluar_gasto(fixture(), "empleado",
                        V(monthly_cost_total=("20000", "MXN")), month="2026-07")
     assert r2["veredicto"] == "no_viable"
