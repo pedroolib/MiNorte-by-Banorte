@@ -1,5 +1,3 @@
-# T0: solo api + web. Sin Postgres local (usamos Supabase cloud desde T2).
-# Uso: cp .env.example .env && docker compose up --build
 services:
   api:
     build: ./apps/api
