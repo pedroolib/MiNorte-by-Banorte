@@ -86,8 +86,14 @@ def chat(messages: list[dict], tools: list[ToolDef] | None = None,
 
 
 def chat_json(messages: list[dict], schema: dict,
-              model: str | None = None) -> dict:
-    """JSON estricto contra schema. Reintenta 1 vez; si falla, lanza."""
+              model: str | None = None, strict: bool = True) -> dict:
+    """JSON contra schema. Reintenta 1 vez; si falla, lanza.
+
+    strict=False para schemas con objetos libres (props del Diseñador):
+    el modo estricto de OpenAI exige additionalProperties:false en todo
+    objeto, lo que prohibiría props con forma variable. La validación
+    real la hace validate_choice en código, no el schema.
+    """
     s = get_settings()
     modelo = model or s.OPENAI_REASONING_MODEL
     msgs = list(messages)
@@ -97,7 +103,7 @@ def chat_json(messages: list[dict], schema: dict,
                 model=modelo, messages=msgs,
                 response_format={"type": "json_schema",
                                  "json_schema": {"name": "out", "schema": schema,
-                                                 "strict": True}},
+                                                 "strict": strict}},
             )
             return json.loads(resp.choices[0].message.content or "")
         except LLMError:

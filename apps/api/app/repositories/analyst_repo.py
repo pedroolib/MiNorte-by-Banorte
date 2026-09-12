@@ -24,3 +24,20 @@ def reemplazar(sb: Any, company_id: str, month: str,
     if insights:
         (sb.table("analyst_insights").insert(insights).execute())
     return listar(sb, company_id, month)
+
+
+def guardar_anchors(sb: Any, company_id: str, month: str,
+                    anchors: list[dict]) -> list[dict]:
+    """Comentarios de anclas del mes (idempotente por métrica)."""
+    for a in anchors:
+        (sb.table("analyst_anchors")
+         .upsert({"company_id": company_id, "month": month,
+                  "metric": a["metric"], "comment": a["comment"]},
+                 on_conflict="company_id,month,metric").execute())
+    return listar_anchors(sb, company_id, month)
+
+
+def listar_anchors(sb: Any, company_id: str, month: str) -> list[dict]:
+    return (sb.table("analyst_anchors").select("*")
+            .eq("company_id", company_id).eq("month", month)
+            .execute().data or [])
