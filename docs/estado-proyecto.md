@@ -89,7 +89,15 @@ abstraído (`log`|`resend`). `/cobranza` funcional sin diseño.
    Diseñador ✅ endurecido: `PROPS_SCHEMAS` espejo de `ui-schema.ts`
    (17 componentes, listas no vacías, extras permitidos), reintento
    combinado con schemas de props en el prompt; si persiste, `LLMError`
-   sin parcial. Reservadas SIEMPRE deterministas (`reserved_cards`):
+   sin parcial. Variedad: mapa kind→componente + `footnote?` en 8
+   componentes visuales (tipos + render + fixtures + doc) + tope 2
+   `insight_text` por diseño + garantía 1:1 insight→tarjeta (faltantes al
+   reintento). Modelos: loops de tools usan `OPENAI_TOOL_MODEL`
+   (mini; los reasoning nuevos rechazan function tools) y la elección
+   de tarjetas usa flagship (`chat_json` sin tools sí lo acepta);
+   `chat_json(..., strict=False)` para schemas con props libres.
+   Verificado: astra genera títulos accionables y variedad real
+   (hero/donut/bars/action_card); footnote aún sin uso espontáneo. Reservadas SIEMPRE deterministas (`reserved_cards`):
    `tax_summary` (nueva señal `isr_estimado`), `receipts_resolution` y
    `receivables_resolution` (payloads de alertas); el Diseñador las tiene
    prohibidas y el Analista avisado de no duplicar sus totales.

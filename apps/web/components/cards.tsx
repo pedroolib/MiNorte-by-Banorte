@@ -64,7 +64,7 @@ export function HeroNumber({
 
 /* ---------------- multi_ring ---------------- */
 
-export function MultiRing({ items }: { items: { label: string; value: number }[] }) {
+export function MultiRing({ items, footnote }: { items: { label: string; value: number }[]; footnote?: string }) {
   if (!items.length) return <Empty what="indicadores" />;
   const colors = ["#16a34a", "#7c3aed", "#eb0029", "#d97706"];
   const R = 54;
@@ -125,6 +125,7 @@ export function MultiRing({ items }: { items: { label: string; value: number }[]
           ))}
         </ul>
       </div>
+      {footnote ? <p className="mt-3 text-xs text-neutral-500">{footnote}</p> : null}
     </div>
   );
 }
@@ -136,11 +137,13 @@ export function BarsTotal({
   total,
   values,
   labels,
+  footnote,
 }: {
   title: string;
   total: string;
   values: number[];
   labels: string[];
+  footnote?: string;
 }) {
   if (!values.length) return <Empty what="periodos" />;
   const max = Math.max(...values.map(num), 1);
@@ -159,6 +162,7 @@ export function BarsTotal({
           </div>
         ))}
       </div>
+      {footnote ? <p className="mt-3 text-xs text-neutral-500">{footnote}</p> : null}
     </div>
   );
 }
@@ -168,9 +172,11 @@ export function BarsTotal({
 export function ProgressList({
   title,
   items,
+  footnote,
 }: {
   title: string;
   items: { label: string; percent: number }[];
+  footnote?: string;
 }) {
   if (!items.length) return <Empty what="partidas" />;
   return (
@@ -192,6 +198,7 @@ export function ProgressList({
           );
         })}
       </div>
+      {footnote ? <p className="mt-3 text-xs text-neutral-500">{footnote}</p> : null}
     </div>
   );
 }
@@ -203,11 +210,13 @@ export function DonutTotal({
   center_value,
   center_label,
   segments,
+  footnote,
 }: {
   title: string;
   center_value: string;
   center_label: string;
   segments: { label: string; value: number }[];
+  footnote?: string;
 }) {
   const total = segments.reduce((s, x) => s + num(x.value), 0);
   if (!segments.length || total <= 0) return <Empty what="segmentos" />;
@@ -248,6 +257,7 @@ export function DonutTotal({
           ))}
         </ul>
       </div>
+      {footnote ? <p className="mt-3 text-xs text-neutral-500">{footnote}</p> : null}
     </div>
   );
 }
@@ -259,11 +269,13 @@ export function EntityCluster({
   subtitle,
   items,
   action_label,
+  footnote,
 }: {
   title: string;
   subtitle: string;
   items: { name: string }[];
   action_label?: string;
+  footnote?: string;
 }) {
   if (!items.length) return <Empty what="entidades" />;
   const shown = items.slice(0, 4);
@@ -295,6 +307,7 @@ export function EntityCluster({
           {action_label}
         </button>
       ) : null}
+      {footnote ? <p className="mt-3 text-xs text-neutral-500">{footnote}</p> : null}
     </div>
   );
 }
@@ -355,11 +368,13 @@ export function TimeSeries({
   points,
   series,
   period_label,
+  footnote,
 }: {
   title: string;
   points: { label: string; income: number; expenses: number }[];
   series: "income" | "expenses" | "both";
   period_label?: string;
+  footnote?: string;
 }) {
   if (!points.length) return <Empty what="movimientos" />;
   const vals = points.map((p) =>
@@ -395,6 +410,7 @@ export function TimeSeries({
           <span key={p.label}>{p.label}</span>
         ))}
       </div>
+      {footnote ? <p className="mt-3 text-xs text-neutral-500">{footnote}</p> : null}
     </div>
   );
 }
@@ -468,12 +484,14 @@ export function MetricTrend({
   change,
   values,
   tone = "neutral",
+  footnote,
 }: {
   label: string;
   value: string;
   change: string;
   values: number[];
   tone?: "positive" | "watch" | "urgent" | "neutral";
+  footnote?: string;
 }) {
   const color = tone === "urgent" ? "#eb0029" : tone === "watch" ? "#d97706" : tone === "positive" ? "#12805c" : "#596069";
   const chip =
@@ -498,6 +516,7 @@ export function MetricTrend({
         <polyline points={pts} fill="none" stroke={color} strokeWidth="2.2" vectorEffect="non-scaling-stroke" />
         <circle cx={Number(last[0])} cy={Number(last[1])} r="2.4" fill={color} />
       </svg>
+      {footnote ? <p className="mt-3 text-xs text-neutral-500">{footnote}</p> : null}
     </div>
   );
 }
@@ -599,9 +618,11 @@ export function TaxSummary({
 export function Waterfall({
   title,
   bars,
+  footnote,
 }: {
   title: string;
   bars: { label: string; value: number }[];
+  footnote?: string;
 }) {
   if (!bars.length) return <Empty what="partidas" />;
   const max = Math.max(...bars.map((b) => Math.abs(num(b.value))), 1);
@@ -625,6 +646,7 @@ export function Waterfall({
           );
         })}
       </div>
+      {footnote ? <p className="mt-3 text-xs text-neutral-500">{footnote}</p> : null}
     </div>
   );
 }

@@ -7,7 +7,6 @@ El modelo redacta; los montos siempre vienen de tools.
 from __future__ import annotations
 
 from app.agents import llm
-from app.config import get_settings
 from app.mcp import tools as T
 
 SYSTEM = """Eres el consultor financiero de una PyME mexicana, dentro de la app MiNorte by Banorte.
@@ -102,12 +101,11 @@ def ask(texto: str, history: list[dict] | None = None,
         executor=None, model: str | None = None,
         perfil: dict | None = None) -> dict:
     """Una pregunta. Devuelve {respuesta, tools_usados, truncado}."""
-    s = get_settings()
     respuesta, audit, truncado = llm.run_tool_loop(
         SYSTEM + _contexto() + _perfil_block(perfil),
         (history or []) + [{"role": "user", "content": texto}],
         tool_defs(), executor or T.execute,
-        model or s.OPENAI_REASONING_MODEL, temperature=0.2)
+        model or llm.tool_model(), temperature=0.2)
     return {"respuesta": respuesta,
             "tools_usados": [a["tool"] for a in audit],
             "llamadas": [{"tool": a["tool"], "args": a.get("args", {})}

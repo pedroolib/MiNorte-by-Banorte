@@ -19,6 +19,23 @@ DESIGNER_TOOLS = ["metric_catalog", "get_metric"]
 #: (reserved_cards) y el Diseñador tiene PROHIBIDO elegirlos.
 RESERVED = ("tax_summary", "receipts_resolution", "receivables_resolution")
 
+#: Máximo de tarjetas insight_text por diseño: el fallback existe pero
+#: no es gratis (si el lote trae más, el excedente va al reintento).
+MAX_TEXT = 2
+
+#: Guía por defecto kind -> componente (el modelo puede desviarse con
+#: justificación en rationale).
+KIND_HINTS = (
+    "concentración/participación -> donut_total o bars_total; "
+    "nivel/saldo/cifra única -> hero_number; "
+    "serie temporal/tendencia -> metric_trend o time_series; "
+    "ranking por partida -> progress_list; "
+    "composición que suma/resta -> waterfall; "
+    "varios porcentajes -> multi_ring; "
+    "llamado a actuar -> action_card; "
+    "solo texto/interpretación sin número -> insight_text."
+)
+
 DESIGNER_SYSTEM = """Eres el diseñador de UI financiera de MiNorte by Banorte.
 Recibes insights rankeados y devuelves tarjetas del catálogo. Español simple.
 
@@ -28,6 +45,19 @@ Reglas duras:
 - Si un nombre no existe, get_metric te devuelve el catálogo: úsalo, no adivines.
 - Elige SOLO componentes de la lista permitida que recibes. Si ninguno calza,
   usa insight_text (texto + evidencia), que siempre funciona.
+- Guía por defecto (salvo mejor opción justificada en rationale):
+  concentración/participación -> donut_total o bars_total;
+  nivel/saldo/cifra única -> hero_number;
+  serie temporal/tendencia -> metric_trend o time_series;
+  ranking por partida -> progress_list;
+  composición que suma/resta -> waterfall;
+  varios porcentajes -> multi_ring;
+  llamado a actuar -> action_card;
+  solo texto/interpretación sin número -> insight_text.
+- Los componentes visuales aceptan footnote opcional para la explicación
+  (1 frase, con cifras ya vistas): prefiere número + footnote sobre texto plano.
+- Máximo 3 tarjetas insight_text por diseño: si necesitas más texto,
+  es señal de que algún insight pide un componente visual.
 - PROHIBIDO elegir tax_summary, receipts_resolution o receivables_resolution:
   esas tarjetas se generan automáticamente por vía determinista. Si un
   insight pide una de ellas, usa insight_text en su lugar.
@@ -113,7 +143,15 @@ PROPS_SCHEMAS: dict[str, dict] = {
 
 
 def _es_num(v) -> bool:
-    return isinstance(v, (int, float)) and not isinstance(v, bool)
+    if isinstance(v, bool):
+        return False
+    if isinstance(v, (int, float)):
+        return True
+    try:
+        float(str(v).replace(",", "").replace("$", "").replace("%", ""))
+        return True
+    except (ValueError, TypeError):
+        return False
 
 
 def _checa(valor, spec, ruta: str) -> str | None:
@@ -126,7 +164,10 @@ def _checa(valor, spec, ruta: str) -> str | None:
             return f"{ruta} debe ser uno de {list(spec)}, llegó {valor!r}"
         return None
     if spec == _STR:
-        return None if isinstance(valor, str) else f"{ruta} debe ser str"
+        # Números donde va string se toleran (React los renderiza igual).
+        return (None if isinstance(valor, (str, int, float))
+                and not isinstance(valor, bool)
+                else f"{ruta} debe ser str")
     if spec == _NUM:
         return None if _es_num(valor) else f"{ruta} debe ser número"
     if isinstance(spec, list):  # [subspec] = lista no vacía
@@ -183,8 +224,14 @@ def validate_choice(choice: dict, components: list[str]) -> list[str]:
 
 def _partir(cards: list[dict], components: list[str]):
     validas, fallidas = [], []
+    n_texto = 0
     for c in cards:
         errs = validate_choice(c, components)
+        if not errs and c.get("component") == "insight_text":
+            n_texto += 1
+            if n_texto > MAX_TEXT:
+                errs = [f"tope de {MAX_TEXT} insight_text excedido: "
+                        "usa un componente visual con footnote"]
         if errs:
             fallidas.append({"insight_id": c.get("insight_id", "?"),
                              "component": c.get("component", "?"),
@@ -204,8 +251,10 @@ def design(insights: list[dict], components: list[str],
     """
     from app.mcp import tools as _T
 
-    s = get_settings()
-    modelo = model or s.OPENAI_FAST_MODEL
+    # Mini ejecuta tools; flagship elige (el mini ignora el tope de texto
+    # y los tipos aun con el error explícito en el reintento).
+    gather_modelo = model or llm.tool_model()
+    elige_modelo = model or get_settings().OPENAI_REASONING_MODEL
     base = ("Insights (id, severidad, texto, evidencia):\n" +
             "\n".join(f"- {i.get('id')}: [{i.get('severity')}] {i.get('titulo')} | "
                        f"{i.get('detalle')} | evidencia={i.get('payload', {})}"
@@ -217,18 +266,29 @@ def design(insights: list[dict], components: list[str],
         DESIGNER_SYSTEM + "\nFase 1: pide con get_metric todo número que te "
         "falte para elegir bien. No elijas aún.",
         [{"role": "user", "content": base}], defs,
-        executor or _T.execute, modelo, temperature=0.2)
+        executor or _T.execute, gather_modelo, temperature=0.2)
     system2 = (DESIGNER_SYSTEM +
                "\nRespeta estos schemas de props por componente "
                "(listas no vacías, montos como string, "
-               "series/periodos como número):\n" +
+               "series/periodos como número). footnote opcional (1 frase) "
+               "en multi_ring, bars_total, progress_list, donut_total, "
+               "entity_cluster, waterfall, metric_trend y time_series:\n" +
                "\n".join(f"- {c}: requeridas {sorted(PROPS_SCHEMAS[c])}"
                          for c in sorted(components) if c in PROPS_SCHEMAS))
     out = llm.chat_json(
         [{"role": "system", "content": system2},
          {"role": "user", "content": base + "\n\nDatos extra:\n" + gather}],
-        _cards_schema(components), modelo, strict=False)
+        _cards_schema(components), elige_modelo, strict=False)
     validas, fallidas = _partir(out.get("cards", []), components)
+    # 1:1 insight -> tarjeta: lo no cubierto va al reintento como faltante
+    # (salvo que ya esté fallido por otro motivo: sin duplicar).
+    esperados = [i.get("id") for i in insights]
+    cubiertos = {c["insight_id"] for c in validas}
+    ya_fallidos = {f["insight_id"] for f in fallidas}
+    for iid in esperados:
+        if iid not in cubiertos and iid not in ya_fallidos:
+            fallidas.append({"insight_id": iid, "component": "?",
+                             "motivos": ["sin tarjeta para este insight"]})
 
     if fallidas:
         ok = [(c["insight_id"], c["component"]) for c in validas]
@@ -243,7 +303,7 @@ def design(insights: list[dict], components: list[str],
               f"{len(fallidas)} tarjetas NUEVAS que las reemplacen "
               "(mismo insight_id, componente y props corregidos, "
               "con la forma de props indicada arriba)."}],
-            _cards_schema(components, len(fallidas)), modelo,
+            _cards_schema(components, len(fallidas)), elige_modelo,
             strict=False)
         validas2, fallidas2 = _partir(out2.get("cards", []), components)
         ids_ok = {c["insight_id"] for c in validas}
