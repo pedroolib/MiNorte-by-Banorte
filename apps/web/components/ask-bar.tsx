@@ -24,7 +24,7 @@ export function AskBar({
     onAsk(t);
   };
   return (
-    <div className="flex gap-2">
+    <div className="flex gap-2 rounded-2xl border border-border/70 bg-card p-1.5 shadow-[0_12px_35px_-24px_rgba(23,23,23,0.45)]">
       <Input
         value={texto}
         onChange={(e) => setTexto(e.target.value)}
@@ -34,8 +34,14 @@ export function AskBar({
         placeholder={placeholder}
         disabled={busy}
         aria-label="Preguntar al equipo financiero"
+        className="h-11 border-0 bg-transparent px-3 shadow-none focus-visible:ring-0"
       />
-      <Button onClick={enviar} disabled={busy || !texto.trim()} aria-label="Enviar pregunta">
+      <Button
+        onClick={enviar}
+        disabled={busy || !texto.trim()}
+        aria-label="Enviar pregunta"
+        className="size-11 rounded-xl px-0 shadow-[0_8px_20px_-8px_rgba(235,0,41,0.8)]"
+      >
         <SendHorizonal className="size-4" />
       </Button>
     </div>
