@@ -23,13 +23,17 @@ from __future__ import annotations
 import csv
 import re
 import sys
-import uuid
 from datetime import date, datetime, timedelta
-from decimal import Decimal, ROUND_HALF_UP
+from decimal import Decimal
 from pathlib import Path
-from xml.sax.saxutils import escape
 
 REPO = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(REPO / "apps" / "api"))
+
+from app.integrations.sat.cfdi_build import (  # noqa: E402
+    cfdi_xml, regimen,
+)
+
 CSV = REPO / "seed" / "transactions.csv"
 DIR = REPO / "seed" / "cfdis"
 
@@ -96,43 +100,6 @@ def cps_para(desc: str, categoria: str) -> tuple[str, str]:
     return CPS_DEFAULT, "COMPRA DE MATERIALES Y CONSUMIBLES"
 
 
-def partir_iva(total: Decimal) -> tuple[Decimal, Decimal]:
-    sub = (total / Decimal("1.16")).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
-    return sub, total - sub
-
-
-def cfdi_xml(*, serie: str, folio: str, fecha: str, forma: str,
-             emisor_rfc: str, emisor_nombre: str, emisor_reg: str,
-             receptor_rfc: str, receptor_nombre: str, receptor_cp: str,
-             receptor_reg: str, uso: str, cps: str, concepto: str,
-             total: Decimal, lugar: str = CP_PROPIO) -> str:
-    sub, iva = partir_iva(total)
-    uid = str(uuid.uuid5(uuid.NAMESPACE_URL, f"minorte-{serie}-{folio}")).upper()
-    hora = f"{fecha}T12:00:00"
-    timbrado = f"{fecha}T12:05:00"
-    return f"""<?xml version="1.0" encoding="UTF-8"?>
-<cfdi:Comprobante xmlns:cfdi="http://www.sat.gob.mx/cfd/4" xmlns:tfd="http://www.sat.gob.mx/TimbreFiscalDigital" Version="4.0" Serie="{serie}" Folio="{folio}" Fecha="{hora}" FormaPago="{forma}" SubTotal="{sub:.2f}" Moneda="MXN" Total="{total:.2f}" TipoDeComprobante="I" MetodoPago="PUE" LugarExpedicion="{lugar}" Exportacion="01">
- <cfdi:Emisor Rfc="{emisor_rfc}" Nombre="{escape(emisor_nombre)}" RegimenFiscal="{emisor_reg}"/>
- <cfdi:Receptor Rfc="{receptor_rfc}" Nombre="{escape(receptor_nombre)}" DomicilioFiscalReceptor="{receptor_cp}" RegimenFiscalReceptor="{receptor_reg}" UsoCFDI="{uso}"/>
- <cfdi:Conceptos>
-  <cfdi:Concepto ClaveProdServ="{cps}" Cantidad="1" ClaveUnidad="E48" Descripcion="{escape(concepto)}" ValorUnitario="{sub:.2f}" Importe="{sub:.2f}"/>
- </cfdi:Conceptos>
- <cfdi:Impuestos TotalImpuestosTrasladados="{iva:.2f}">
-  <cfdi:Traslados>
-   <cfdi:Traslado Base="{sub:.2f}" Impuesto="002" TipoFactor="Tasa" TasaOCuota="0.160000" Importe="{iva:.2f}"/>
-  </cfdi:Traslados>
- </cfdi:Impuestos>
- <cfdi:Complemento>
-  <tfd:TimbreFiscalDigital Version="1.1" UUID="{uid}" FechaTimbrado="{timbrado}" RfcProvCertif="SAT970701NN3"/>
- </cfdi:Complemento>
-</cfdi:Comprobante>
-"""
-
-
-def regimen(rfc: str) -> str:
-    return "601" if len(rfc) == 12 else "612"
-
-
 def main() -> None:
     rows = list(csv.DictReader(open(CSV, encoding="utf-8")))
     (DIR / "emitido").mkdir(parents=True, exist_ok=True)
@@ -159,7 +126,7 @@ def main() -> None:
             emisor_rfc=RFC_PROPIO, emisor_nombre=EMPRESA, emisor_reg="601",
             receptor_rfc=r["rfc"], receptor_nombre=r["comercio"],
             receptor_cp=cp, receptor_reg=regimen(r["rfc"]), uso="G03",
-            cps=cps, concepto=concepto, total=Decimal(r["deposito"])), encoding="utf-8")
+            cps=cps, concepto=concepto, total=Decimal(r["deposito"]), lugar=CP_PROPIO), encoding="utf-8")
         folio += 1
         n_emi += 1
 
@@ -167,14 +134,14 @@ def main() -> None:
     total_cxc = Decimal("0")
     for fol, cli, rfc, total, emision in IMPAGADOS:
         assert total not in montos_banco, f"impagado {fol} colisiona con banco"
-        cps, concepto = CONCEPTOS_EMITIDO[hash(fol) % len(CONCEPTOS_EMITIDO)]
         serie, num = fol.split("-")
+        cps, concepto = CONCEPTOS_EMITIDO[int(num) % len(CONCEPTOS_EMITIDO)]
         (DIR / "emitido" / f"{fol}.xml").write_text(cfdi_xml(
             serie=serie, folio=num, fecha=emision, forma="03",
             emisor_rfc=RFC_PROPIO, emisor_nombre=EMPRESA, emisor_reg="601",
             receptor_rfc=rfc, receptor_nombre=cli,
             receptor_cp=CP_PROPIO, receptor_reg=regimen(rfc), uso="G03",
-            cps=cps, concepto=concepto, total=Decimal(total)), encoding="utf-8")
+            cps=cps, concepto=concepto, total=Decimal(total), lugar=CP_PROPIO), encoding="utf-8")
         total_cxc += Decimal(total)
         n_emi += 1
 
@@ -200,7 +167,7 @@ def main() -> None:
             emisor_rfc=r["rfc"], emisor_nombre=r["comercio"], emisor_reg=regimen(r["rfc"]),
             receptor_rfc=RFC_PROPIO, receptor_nombre=EMPRESA,
             receptor_cp=CP_PROPIO, receptor_reg="601", uso="G03",
-            cps=cps, concepto=concepto, total=Decimal(r["retiro"])), encoding="utf-8")
+            cps=cps, concepto=concepto, total=Decimal(r["retiro"]), lugar=CP_PROPIO), encoding="utf-8")
         serie_i += 1
         n_rec += 1
 

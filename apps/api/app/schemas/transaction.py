@@ -13,7 +13,7 @@ from typing import Literal, Optional
 from pydantic import BaseModel, Field, field_validator
 
 TransactionType = Literal["ingreso", "egreso"]
-TransactionSource = Literal["banorte_mock", "banorte_real", "manual"]
+TransactionSource = Literal["banorte_mock", "banorte_real", "bbva_mock", "manual"]
 
 
 class Transaction(BaseModel):

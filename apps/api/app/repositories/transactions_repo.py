@@ -27,6 +27,7 @@ def _row(t: Transaction) -> dict:
         "es_interno": t.es_interno,
         "categoria": t.categoria,
         "rubro": t.rubro,
+        "source": t.source,
     }
 
 
@@ -43,7 +44,7 @@ def _to_tx(r: dict) -> Transaction:
         merchant_rfc=r.get("rfc"),
         type=r["tipo"],
         balance=Decimal(str(r["saldo"])) if r.get("saldo") is not None else None,
-        source="banorte_mock",
+        source=r.get("source") or "banorte_mock",
         es_interno=bool(r.get("es_interno")),
         categoria=r.get("categoria") or "otro",
         rubro=r.get("rubro") or "por_clasificar",

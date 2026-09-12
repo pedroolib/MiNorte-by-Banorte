@@ -30,6 +30,7 @@ RUBROS = [
     "impuestos",
     "comisiones_bancarias",
     "equipo_computo",
+    "pago_tarjeta",
     "traspaso_interno",
     "varios",
     "por_clasificar",
@@ -48,8 +49,10 @@ SAT_MAP = {
     "43211500": "equipo_computo",
     "83111500": "telecom",
     "84131500": "seguros",
-    "80101500": "servicios_generales",     # consultoría/servicios profesionales
+    "80101500": "servicios_generales",  # consultoría/servicios profesionales
     "80111600": "servicios_generales",
+    "84111500": "nomina",
+    "93151500": "impuestos",
 }
 
 # Substring de comercio (mayúsculas) -> rubro. Comercios del seed + cadenas.
@@ -141,6 +144,10 @@ def clasificar_rubro(descripcion: str, merchant: str = "",
         return "impuestos"
     if categoria in ("comision", "iva_comision"):
         return "comisiones_bancarias"
+    if categoria == "pago_tdc":
+        return "pago_tarjeta"
+    if categoria == "cheque":
+        return "varios" if "EFECTIVO" in descripcion.upper() else "por_clasificar"
     if categoria == "traspaso_terceros":
         return "honorarios"
     if categoria in ("domiciliacion", "servicios"):

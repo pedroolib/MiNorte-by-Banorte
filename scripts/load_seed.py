@@ -1,15 +1,25 @@
 #!/usr/bin/env python3
-"""Carga el seed a Supabase (idempotente: upsert por PK, re-corrible).
+"""Carga seed a Supabase (idempotente: upsert por PK, re-corrible).
 
-Uso:
+Uso demo (defaults):
     uv run --project apps/api python scripts/load_seed.py
 
-Requiere: SUPABASE_URL + SUPABASE_ANON_KEY en .env y haber corrido
-apps/api/migrations/001_core.sql en el SQL Editor de Supabase.
+Uso piloto (datos reales en seed/private/, jamás en git):
+    uv run --project apps/api python scripts/load_seed.py \
+      --company company_pilot \
+      --company-json seed/private/piloto/IDENTIDAD.json \
+      --accounts-json seed/private/piloto/IDENTIDAD.json \
+      --csv seed/private/piloto/transactions_jul2026.csv \
+      --cfdis-dir seed/private/piloto/cfdis \
+      --profile-json seed/private/piloto/IDENTIDAD.json \
+      --expect seed/private/piloto/esperado.json
+
+Requiere: SUPABASE_URL + SUPABASE_ANON_KEY en .env y migraciones aplicadas.
 """
 
 from __future__ import annotations
 
+import argparse
 import json
 import sys
 from collections import defaultdict
@@ -27,8 +37,7 @@ from app.repositories import transactions_repo as repo  # noqa: E402
 from app.repositories import cfdi_repo, collections_repo as colrepo  # noqa: E402
 from app.repositories import profile_repo  # noqa: E402
 
-# Flujo neto esperado por mes (depósitos - retiros del resumen;
-# las devoluciones viajan como ingreso neto, el neto no miente).
+# Flujo neto esperado demo (dev stages). Piloto usa --expect.
 ESPERADO_NETO = {
     (2026, 6): "-11876.58",
     (2026, 7): "-13941.40",
@@ -37,15 +46,33 @@ ESPERADO_NETO = {
 
 
 def main() -> None:
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--company", default=None)
+    ap.add_argument("--company-json", default="seed/company.json")
+    ap.add_argument("--accounts-json", default="seed/accounts.json")
+    ap.add_argument("--csv", default="seed/transactions.csv")
+    ap.add_argument("--cfdis-dir", default="seed/cfdis")
+    ap.add_argument("--profile-json", default=None,
+                    help="IDENTIDAD con giro/ciudad/cp/notas ( privately )")
+    ap.add_argument("--expect", default=None,
+                    help="JSON {neto: {'YYYY-MM': '...'}} para validar totales")
+    args = ap.parse_args()
+
     s = get_settings()
     sb = get_supabase()
     if sb is None:
         sys.exit("Sin Supabase: pon SUPABASE_URL y SUPABASE_ANON_KEY en .env")
 
-    company_id = s.COMPANY_ID
+    company_id = args.company or s.COMPANY_ID
+    base = REPO
+    company = json.loads((base / args.company_json).read_text())
+    if "company" in company:  # formato IDENTIDAD piloto
+        company = company["company"]
+    accounts = json.loads((base / args.accounts_json).read_text())
+    if isinstance(accounts, dict) and "accounts" in accounts:
+        accounts = accounts["accounts"]
     try:
         # 1. company + accounts
-        company = json.loads((REPO / "seed" / "company.json").read_text())
         repo.upsert_company(sb, {
             "id": company["company_id"],
             "rfc": company["rfc"],
@@ -54,7 +81,7 @@ def main() -> None:
             "moneda": company.get("moneda", "MXN"),
             "timezone": company.get("timezone", "America/Mexico_City"),
         })
-        for acc in json.loads((REPO / "seed" / "accounts.json").read_text()):
+        for acc in accounts:
             repo.upsert_account(sb, {
                 "company_id": company_id,
                 "id": acc["account_id"],
@@ -62,27 +89,28 @@ def main() -> None:
                 "clabe": acc.get("clabe"),
                 "moneda": acc.get("moneda", "MXN"),
             })
-        # 2. transactions (473)
-        txns = cargar_csv(REPO / "seed" / "transactions.csv", company_id=company_id)
+        # 2. transactions
+        txns = cargar_csv(base / args.csv, company_id=company_id)
         n = repo.upsert_transactions(sb, txns)
-        print(f"upsert companies=1 accounts=2 transactions={n}")
+        print(f"upsert companies=1 accounts={len(accounts)} transactions={n}")
     except Exception as e:
         if "PGRST205" in str(e) or "Could not find the table" in str(e):
-            sys.exit(
-                "Tablas no existen en Supabase.\n"
-                "Corre apps/api/migrations/001_core.sql en:\n"
-                "Supabase Dashboard → SQL Editor → New query → Run"
-            )
+            sys.exit("Tablas no existen en Supabase (corre migraciones 001-008).")
         raise
 
-    # 3. verificación: conteo + sumas mensuales desde la DB
+    # 3. verificación: conteo + netos mensuales desde la DB
     assert repo.count(sb, company_id) == len(txns), "conteo distinto al CSV"
     got = repo.fetch_ordered(sb, company_id)
     assert len(got) == len(txns)
+    if args.expect:
+        esperado = {(int(k[:4]), int(k[5:7])): v
+                    for k, v in json.loads(Path(args.expect).read_text())["neto"].items()}
+    else:
+        esperado = ESPERADO_NETO
     por_mes: dict[tuple[int, int], list] = defaultdict(list)
     for t in got:
         por_mes[(t.date.year, t.date.month)].append(t)
-    for (anio, mes), neto_e in ESPERADO_NETO.items():
+    for (anio, mes), neto_e in esperado.items():
         fm = por_mes[(anio, mes)]
         neto = sum(
             (t.amount if t.type == "ingreso" else -t.amount for t in fm),
@@ -92,9 +120,9 @@ def main() -> None:
         print(f"mes {mes}: n={len(fm)} neto={neto} OK")
 
     # 4. cfdis (XMLs -> parseo real -> upsert)
-    cfdi_dir = REPO / "seed" / "cfdis"
+    cfdi_dir = base / args.cfdis_dir
     xmls = sorted(cfdi_dir.rglob("*.xml"))
-    assert xmls, "sin XMLs: corre scripts/build_seed_cfdis.py"
+    assert xmls, f"sin XMLs en {cfdi_dir}"
     cfdis = [cx.parsear_archivo(p, company_id, company["rfc"], base=cfdi_dir)
              for p in xmls]
     n_cfdi = cfdi_repo.upsert_cfdis(sb, cfdis)
@@ -103,13 +131,12 @@ def main() -> None:
     assert cfdi_repo.count(sb, company_id, "emitido") == n_emi
     assert cfdi_repo.count(sb, company_id, "recibido") == n_cfdi - n_emi
 
-    # 5. directorio esqueleto: receptores de emitidos con email NULL,
-    # salvo override en seed/private/contacts.json {RFC: {email, phone}}
-    # (PII local, nunca en git: alta manual o importación lo llenan).
-    vistos: dict[str, str] = {}
+    # 5. directorio esqueleto (clave RFC+nombre: XAXX compartido en piloto).
+    # Sin email salvo override seed/private/contacts.json (PII local).
+    vistos: dict[tuple[str, str], str] = {}
     for c in cfdis:
         if c.tipo == "emitido":
-            vistos.setdefault(c.receptor_rfc, c.receptor_nombre)
+            vistos.setdefault((c.receptor_rfc, c.receptor_nombre), c.receptor_nombre)
     extra = {}
     priv = REPO / "seed" / "private" / "contacts.json"
     if priv.exists():
@@ -117,24 +144,39 @@ def main() -> None:
         print(f"override contactos desde {priv}")
     n_con = colrepo.seed_skeleton(sb, company_id, [
         {"customer_rfc": rfc, "customer_name": nom,
-         "email": (extra.get(rfc) or {}).get("email", ""),
-         "phone": (extra.get(rfc) or {}).get("phone", "")}
-        for rfc, nom in vistos.items()])
-    print(f"contactos={n_con} (con email: "
-          f"{sum(1 for r in (extra or {}) if (extra[r] or {}).get('email'))})")
+         "email": (extra.get(f"{rfc}|{nom}") or {}).get("email", ""),
+         "phone": (extra.get(f"{rfc}|{nom}") or {}).get("phone", "")}
+        for (rfc, nom) in vistos])
+    print(f"contactos={n_con}")
 
-    # 6. perfil default SOLO si no existe (nunca pisa edición manual).
-    # Se genera con la misma detección que propone /ajustes.
+    # 6. perfil: archivo si se da, si no detección; nunca pisa existente.
     try:
         if profile_repo.get_profile(sb, company_id) is None:
-            sug = profile_repo.sugerir_perfil(txns, cfdis)
-            sb.table("business_profiles").insert({
-                "company_id": company_id, "giro": sug["giro"],
-                "ciudad": sug["ciudad"], "estado": sug["estado"],
-                "cp": sug["cp"], "tamanio": sug["tamanio"],
-                "modelo": sug["modelo"], "notas": "seed inicial"}).execute()
-            print(f"perfil default creado: {sug['giro']} · "
-                  f"{sug['ciudad']} · {sug['tamanio']} · {sug['modelo']}")
+            if args.profile_json:
+                ident = json.loads((base / args.profile_json).read_text())
+                prof = ident.get("profile", {})
+                sug = profile_repo.sugerir_perfil(txns, cfdis)
+                fila = {
+                    "company_id": company_id,
+                    "giro": prof.get("giro") or sug["giro"],
+                    "ciudad": prof.get("ciudad") or sug["ciudad"],
+                    "estado": prof.get("estado") or sug["estado"],
+                    "cp": prof.get("cp") or sug["cp"],
+                    "tamanio": prof.get("tamanio") or sug["tamanio"],
+                    "modelo": prof.get("modelo") or sug["modelo"],
+                    "notas": prof.get("notas", "")}
+                sb.table("business_profiles").insert(fila).execute()
+                print(f"perfil creado desde {args.profile_json}: "
+                      f"{fila['giro']} · {fila['ciudad']}")
+            else:
+                sug = profile_repo.sugerir_perfil(txns, cfdis)
+                sb.table("business_profiles").insert({
+                    "company_id": company_id, "giro": sug["giro"],
+                    "ciudad": sug["ciudad"], "estado": sug["estado"],
+                    "cp": sug["cp"], "tamanio": sug["tamanio"],
+                    "modelo": sug["modelo"], "notas": "seed inicial"}).execute()
+                print(f"perfil default creado: {sug['giro']} · "
+                      f"{sug['ciudad']} · {sug['tamanio']} · {sug['modelo']}")
         else:
             print("perfil existente: se respeta")
     except Exception as e:

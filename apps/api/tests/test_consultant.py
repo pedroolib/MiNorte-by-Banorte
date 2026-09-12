@@ -50,9 +50,11 @@ def test_loans_preview_sin_confirm(monkeypatch):
 
 def test_loans_registra_con_confirm(monkeypatch):
     guardado = {}
-    monkeypatch.setattr("app.repositories.chat_repo.registrar_solicitud",
-                        lambda sb, cid, terms: {"folio": "SOL-X",
-                                               "status": "solicitada_mock", **terms})
+    monkeypatch.setattr(main, "_sb_or_503", lambda: object())
+    monkeypatch.setattr(
+        "app.repositories.chat_repo.registrar_solicitud",
+        lambda sb, cid, terms: {"folio": "SOL-X",
+                               "status": "solicitada_mock", **terms})
     r = TestClient(main.app).post("/api/loans/apply", json={
         "option_id": "cred_simple_negocios", "amount": "100000",
         "months": 12, "confirm": True}).json()

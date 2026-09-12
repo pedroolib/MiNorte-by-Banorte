@@ -82,7 +82,7 @@ def cargar_csv(ruta: Path, company_id: str = "company_001") -> list[Transaction]
                 merchant_rfc=row.get("rfc") or None,
                 type=tipo,
                 balance=Decimal(row["saldo"]) if row.get("saldo") else None,
-                source="banorte_mock",
+                source=row.get("source") or "banorte_mock",
                 es_interno=row.get("es_interno") == "1",
                 categoria=cat,
                 rubro=rubro_inicial(desc, merch, cat, tipo),

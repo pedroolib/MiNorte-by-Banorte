@@ -26,3 +26,5 @@ pnpm-debug.log*
 .idea/
 
 seed/private
+# Cinturón extra: ningún PDF con estados reales entra al repo jamás
+*.pdf

@@ -129,7 +129,10 @@ def recs_stub():
 
 @pytest.fixture
 def api(monkeypatch):
+    from app.repositories.collections_repo import resolve as _resolve
+
     stub = StubCol()
+    stub.resolve = staticmethod(_resolve)
     monkeypatch.setattr(main, "get_supabase", lambda: object())
     monkeypatch.setattr(main, "col", stub)
     monkeypatch.setattr(main.fr, "fetch_receivables", lambda sb, cid: recs_stub())
@@ -224,3 +227,16 @@ def test_upsert_conserva_nombre_previo():
     assert sb.upserted["email"] == "nuevo@x.com"
     assert sb.upserted["customer_name"] == "NOMBRE VIEJO"
     assert sb.upserted["customer_rfc"] == "X"
+
+
+def test_resolve_por_nombre_con_rfc_compartido():
+    from app.repositories.collections_repo import resolve
+    contactos = [
+        {"customer_rfc": "XAXX010101000", "customer_name": "A", "email": "a@x.com"},
+        {"customer_rfc": "XAXX010101000", "customer_name": "B", "email": None},
+        {"customer_rfc": "U", "customer_name": "C", "email": "c@x.com"},
+    ]
+    assert resolve(contactos, "XAXX010101000", "B")["customer_name"] == "B"
+    assert resolve(contactos, "XAXX010101000", "") is None  # ambiguo sin nombre
+    assert resolve(contactos, "U", "")["email"] == "c@x.com"
+    assert resolve(contactos, "ZZZ", "") is None

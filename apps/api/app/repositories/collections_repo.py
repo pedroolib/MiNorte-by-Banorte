@@ -6,16 +6,44 @@ from typing import Any
 from app.operator.collections import email_valido
 
 
-def get_contact(sb: Any, company_id: str, customer_rfc: str) -> dict | None:
+def get_contact(sb: Any, company_id: str, customer_rfc: str,
+                customer_name: str = "") -> dict | None:
+    """Resuelve contacto: tupla exacta (rfc, nombre); si hay varios con el
+    RFC (XAXX compartido), desempata por nombre; si no, el único."""
+    rfc = customer_rfc.upper().strip()
     res = (sb.table("customer_contacts").select("*")
-           .eq("company_id", company_id)
-           .eq("customer_rfc", customer_rfc.upper().strip()).execute())
-    return (res.data or [None])[0]
+           .eq("company_id", company_id).eq("customer_rfc", rfc).execute())
+    filas = res.data or []
+    if customer_name:
+        for f in filas:
+            if (f.get("customer_name") or "") == customer_name:
+                return f
+    return filas[0] if filas else None
 
 
 def list_contacts(sb: Any, company_id: str) -> list[dict]:
     return (sb.table("customer_contacts").select("*")
             .eq("company_id", company_id).order("customer_name").execute().data or [])
+
+
+def resolve(contacts: list[dict], customer_rfc: str,
+            customer_name: str = "") -> dict | None:
+    """Mejor contacto para (rfc, nombre): tupla exacta, si no el único del
+    RFC, si no coincidencia por nombre. None si no hay nada útil."""
+    rfc = (customer_rfc or "").upper().strip()
+    por_rfc = [c for c in contacts if (c.get("customer_rfc") or "").upper() == rfc]
+    if customer_name:
+        for c in por_rfc:
+            if (c.get("customer_name") or "") == customer_name:
+                return c
+    if len(por_rfc) == 1:
+        return por_rfc[0]
+    if customer_name:
+        unicos = [c for c in contacts
+                  if (c.get("customer_name") or "") == customer_name]
+        if len(unicos) == 1:
+            return unicos[0]
+    return None
 
 
 def upsert_contact(sb: Any, company_id: str, customer_rfc: str,
@@ -28,15 +56,15 @@ def upsert_contact(sb: Any, company_id: str, customer_rfc: str,
     row = {"company_id": company_id, "customer_rfc": rfc,
            "customer_name": customer_name, "email": mail, "phone": phone,
            "updated_at": datetime.now(timezone.utc).isoformat()}
-    previo = get_contact(sb, company_id, rfc) or {}
+    previo = get_contact(sb, company_id, rfc, customer_name) or {}
     # no pisar nombre/teléfono ya guardados con vacíos (captura solo email)
     if not row["customer_name"]:
         row["customer_name"] = previo.get("customer_name", "")
     if not row["phone"]:
         row["phone"] = previo.get("phone", "")
     (sb.table("customer_contacts")
-     .upsert(row, on_conflict="company_id,customer_rfc").execute())
-    return get_contact(sb, company_id, rfc) or row
+     .upsert(row, on_conflict="company_id,customer_rfc,customer_name").execute())
+    return get_contact(sb, company_id, rfc, row["customer_name"]) or row
 
 
 def seed_skeleton(sb: Any, company_id: str, clientes: list[dict]) -> int:
@@ -48,7 +76,7 @@ def seed_skeleton(sb: Any, company_id: str, clientes: list[dict]) -> int:
     n = 0
     for c in clientes:
         rfc = c["customer_rfc"].upper().strip()
-        previo = get_contact(sb, company_id, rfc) or {}
+        previo = get_contact(sb, company_id, rfc, c.get("customer_name", "")) or {}
         # jamás pisar un email capturado con vacío (el seed no manda)
         email = (c.get("email") or "").strip() or (previo.get("email") or None)
         phone = c.get("phone", "") or previo.get("phone", "")
@@ -56,7 +84,7 @@ def seed_skeleton(sb: Any, company_id: str, clientes: list[dict]) -> int:
                "customer_name": c.get("customer_name", "") or previo.get("customer_name", ""),
                "email": email, "phone": phone}
         (sb.table("customer_contacts")
-         .upsert(row, on_conflict="company_id,customer_rfc").execute())
+         .upsert(row, on_conflict="company_id,customer_rfc,customer_name").execute())
         n += 1
     return n
 

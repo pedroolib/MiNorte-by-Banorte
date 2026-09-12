@@ -3,7 +3,7 @@
  <cfdi:Emisor Rfc="CNM160812AB1" Nombre="CAFE NORTENO SA DE CV" RegimenFiscal="601"/>
  <cfdi:Receptor Rfc="MEDA950619KL6" Nombre="PEDRO A. RUIZ" DomicilioFiscalReceptor="76087" RegimenFiscalReceptor="612" UsoCFDI="G03"/>
  <cfdi:Conceptos>
-  <cfdi:Concepto ClaveProdServ="72101500" Cantidad="1" ClaveUnidad="E48" Descripcion="SERVICIO DE SOLDADURA Y PAILERIA" ValorUnitario="13448.28" Importe="13448.28"/>
+  <cfdi:Concepto ClaveProdServ="31161500" Cantidad="1" ClaveUnidad="E48" Descripcion="VENTA DE REFACCIONES INDUSTRIALES" ValorUnitario="13448.28" Importe="13448.28"/>
  </cfdi:Conceptos>
  <cfdi:Impuestos TotalImpuestosTrasladados="2151.72">
   <cfdi:Traslados>
