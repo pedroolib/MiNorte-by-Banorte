@@ -105,9 +105,9 @@ function initials(name: string) {
     .join("");
 }
 
-function Footnote({ text }: { text?: string }) {
+function Footnote({ text, className }: { text?: string; className?: string }) {
   if (!text) return null;
-  return <p className="mt-3 text-xs text-muted-foreground">{text}</p>;
+  return <p className={cn("mt-3 text-xs text-muted-foreground", className)}>{text}</p>;
 }
 
 type Tone = "positive" | "watch" | "urgent" | "neutral";
@@ -224,7 +224,11 @@ export function DataTable({
 function partirMonto(value: string) {
   const m = /^(-?\$?)([\d,]+)(\.\d+)?\s*([A-Za-z]{2,4})?$/.exec(value.trim());
   if (!m) return null;
-  return { signo: m[1] ?? "", enteros: m[2], decimales: m[3] ?? "", moneda: m[4] ?? "" };
+  // El valor puede llegar sin comas de miles (o con decimales sin redondear);
+  // se normalizan aquí para que cualquier tarjeta se vea igual de estándar.
+  const enteros = Number(m[2].replace(/,/g, "")).toLocaleString("es-MX");
+  const centavos = m[3] ? String(Math.round(Number(m[3]) * 100)).padStart(2, "0") : "";
+  return { signo: m[1] ?? "", enteros, decimales: centavos ? `.${centavos}` : "", moneda: m[4] ?? "" };
 }
 
 export function HeroNumber({
@@ -670,7 +674,7 @@ export function TimeSeries({
   const vals = points.map((p) =>
     series === "income" ? num(p.income) : series === "expenses" ? num(p.expenses) : num(p.income) - num(p.expenses),
   );
-  const color = series === "expenses" ? "#059669" : "#7c3aed";
+  const color = series === "expenses" ? "#059669" : "hsl(var(--primary))";
   const data = points.map((p, i) => ({ label: p.label, value: vals[i] }));
   const minVal = Math.min(...vals);
   return (
@@ -686,6 +690,7 @@ export function TimeSeries({
           <AreaChart data={data} margin={{ top: 8, right: 8, bottom: 0, left: 8 }}>
             <ChartTooltip cursor={false} content={<ChartTooltipContent hideLabel />} />
             <XAxis dataKey="label" tickLine={false} axisLine={false} tickMargin={6} fontSize={10} />
+            <ReferenceLine y={0} stroke="hsl(var(--border))" />
             <Area dataKey="value" type="monotone" fill="none" stroke={color} strokeWidth={2.5} dot={false} activeDot={{ r: 3.5 }} />
             <ReferenceDot x={points[vals.indexOf(minVal)]?.label} y={minVal} r={3.5} fill="hsl(var(--card))" stroke={color} strokeWidth={2} />
           </AreaChart>
@@ -808,8 +813,10 @@ export function MetricTrend({
 
 export function TransactionsList({
   items,
+  footnote,
 }: {
   items: { id: string; merchant: string; category: string; date: string; amount: string; type: "ingreso" | "egreso" }[];
+  footnote?: string;
 }) {
   if (!items.length) return <Empty what="movimientos" />;
   return (
@@ -818,20 +825,20 @@ export function TransactionsList({
         <CardTitle className="text-sm">Movimientos recientes</CardTitle>
       </CardHeader>
       <CardContent className="px-2">
-        <Table>
+        <Table className="table-fixed">
           <TableHeader>
             <TableRow>
-              <TableHead>Comercio</TableHead>
-              <TableHead>Categoría</TableHead>
-              <TableHead>Fecha</TableHead>
-              <TableHead className="text-right">Monto</TableHead>
+              <TableHead className="w-[38%]">Comercio</TableHead>
+              <TableHead className="w-[27%]">Categoría</TableHead>
+              <TableHead className="w-[17%]">Fecha</TableHead>
+              <TableHead className="w-[18%] text-right">Monto</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {items.map((item) => (
               <TableRow key={item.id}>
-                <TableCell className="font-medium">{item.merchant}</TableCell>
-                <TableCell className="text-muted-foreground">{item.category}</TableCell>
+                <TableCell className="truncate font-medium">{item.merchant}</TableCell>
+                <TableCell className="truncate text-muted-foreground">{item.category}</TableCell>
                 <TableCell className="text-muted-foreground">{item.date.slice(0, 10)}</TableCell>
                 <TableCell className="text-right">
                   <Badge variant={item.type === "ingreso" ? "success" : "secondary"}>
@@ -843,6 +850,7 @@ export function TransactionsList({
             ))}
           </TableBody>
         </Table>
+        <Footnote text={footnote} />
       </CardContent>
     </Card>
   );
@@ -852,8 +860,10 @@ export function TransactionsList({
 
 export function TimelineList({
   items,
+  footnote,
 }: {
   items: { id: string; customer_name: string; due_date: string | null; issued_at: string; amount_pending: string; status: string }[];
+  footnote?: string;
 }) {
   if (!items.length) return <Empty what="cobros próximos" />;
   const now = new Date();
@@ -874,12 +884,12 @@ export function TimelineList({
           ? "Vence hoy"
           : `Vence en ${d} d`;
   return (
-    <Card>
+    <Card className="flex h-full flex-col">
       <CardHeader className="pb-2">
         <CardTitle className="text-sm">Facturas por cobrar</CardTitle>
         <CardDescription>Próximos cobros</CardDescription>
       </CardHeader>
-      <CardContent>
+      <CardContent className="flex flex-1 flex-col">
         <ol className="relative space-y-4 border-l border-border pl-0">
           {items.slice(0, 4).map((item) => {
             const d = diasPara(item.due_date);
@@ -902,6 +912,7 @@ export function TimelineList({
             );
           })}
         </ol>
+        <Footnote text={footnote} className="mt-auto" />
       </CardContent>
     </Card>
   );

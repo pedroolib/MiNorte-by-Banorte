@@ -76,6 +76,8 @@ Reglas duras:
   solo texto/interpretación sin número -> insight_text.
 - Los componentes visuales aceptan footnote opcional para la explicación
   (1 frase, con cifras ya vistas): prefiere número + footnote sobre texto plano.
+  Inclúyelo SIEMPRE en transactions_list y timeline_list: son listas de filas
+  crudas (movimientos, facturas) y sin footnote el dueño no sabe qué está viendo.
 - El footnote lo lee un dueño que NO sabe de finanzas: español simple,
   máximo 140 caracteres, cero tecnicismos. PROHIBIDO: HHI, DSO, burn,
   runway, volatilidad, puntos base, basis, amortización, apalancamiento,
