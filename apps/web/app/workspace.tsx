@@ -300,15 +300,23 @@ function WeeklyView({
   );
   const wrap = (c: GenCard) => {
     const abierto = resolviendo === c.insight_id;
+    // Los "Resolver" son barras delgadas: estirarlas deja un cajón vacío.
+    const esBanner =
+      c.component === "receipts_resolution" ||
+      c.component === "receivables_resolution";
     return (
     <div
       key={c.insight_id}
       className={cn(
         "flex flex-col gap-2",
-        // Con todo cerrado las tarjetas se emparejan. Con un panel abierto
-        // cada una toma su alto natural: la tarjeta no crece, el panel cae
-        // debajo y lo que sigue se recorre.
-        !resolviendo && "h-full [&>*:first-child]:grow",
+        // Los "Resolver" son barras de aviso: fila completa y alto natural.
+        esBanner && "self-start lg:col-span-2",
+        // Las de contenido se emparejan por fila y centran su contenido en
+        // el alto sobrante, para que no quede un hueco al fondo. Con un
+        // panel abierto nadie se estira: el panel cae debajo de su tarjeta.
+        !resolviendo &&
+          !esBanner &&
+          "h-full [&>*:first-child]:grow [&>*:first-child]:flex [&>*:first-child]:flex-col [&>*:first-child]:justify-center",
       )}
     >
       <DynamicUI
@@ -330,6 +338,7 @@ function WeeklyView({
         <Button
           variant="ghost"
           size="sm"
+          className="-mt-1 h-7 self-start px-2 text-xs text-muted-foreground"
           onClick={() =>
             onDeepDive(c.insight_id, String((c.props as { title?: string }).title ?? c.component))
           }
@@ -343,16 +352,13 @@ function WeeklyView({
   return (
     <div className="space-y-7">
       <header className="space-y-3">
-        <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           <div>
             <p className="text-xs font-bold uppercase tracking-[0.16em] text-muted-foreground">
               {data.month} · {data.week_id}
             </p>
             <h2 className="mt-1 text-xl font-bold tracking-tight">Tu semana financiera</h2>
           </div>
-          <Badge variant="outline" className="rounded-full bg-card px-3 py-1.5">
-            MXN · Pesos mexicanos
-          </Badge>
         </div>
         {data.summary ? (
           <Alert className="border-primary/10 bg-gradient-to-r from-primary/[0.07] via-card to-card px-5 py-4">
