@@ -67,7 +67,7 @@ export function InlineAdvice({
   }, [question]);
 
   return (
-    <div className="rounded-2xl border border-primary/20 bg-card p-4 shadow-sm sm:p-5">
+    <div className="rounded-2xl border border-primary/20 bg-card/55 p-4 shadow-xl backdrop-blur-lg sm:p-5">
       <div className="mb-2 flex items-start justify-between gap-3">
         <p className="flex items-center gap-1.5 text-sm font-bold tracking-tight">
           <Sparkles className="size-4 text-primary" /> Cómo resolverlo

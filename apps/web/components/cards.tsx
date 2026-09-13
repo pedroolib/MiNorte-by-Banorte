@@ -401,7 +401,7 @@ export function BarsTotal({
     <Card>
       <CardHeader className="pb-2">
         <CardDescription>{title}</CardDescription>
-        <CardTitle className="text-3xl">{total}</CardTitle>
+        <CardTitle className="text-3xl">{money(total)}</CardTitle>
       </CardHeader>
       <CardContent>
         <ChartContainer config={{ value: { label: title, color: "hsl(var(--primary))" } }} className="h-28 w-full">
@@ -999,7 +999,7 @@ export function InsightText({
       ) : tone === "urgent" || tone === "watch" ? (
         <AlertTriangle />
       ) : null}
-      <AlertTitle>
+      <AlertTitle className="line-clamp-none">
         <Badge variant={toneBadge(tone)}>{title}</Badge>
       </AlertTitle>
       <AlertDescription>
