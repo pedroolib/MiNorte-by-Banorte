@@ -6,6 +6,7 @@ import { ArrowLeft, BookmarkPlus, MessageCircle } from "lucide-react";
 
 import { AskBar } from "@/components/ask-bar";
 import { CriticalBar } from "@/components/critical-bar";
+import { Markdown } from "@/components/markdown";
 import { DynamicUI } from "@/components/registry";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -320,8 +321,8 @@ function ConsultantView({
         <h2 className="text-lg font-bold">{answer.pregunta}</h2>
       </div>
       <Alert>
-        <AlertDescription className="whitespace-pre-wrap">
-          {answer.respuesta}
+        <AlertDescription>
+          <Markdown text={answer.respuesta} />
         </AlertDescription>
       </Alert>
       {answer.tarjetas.length > 0 ? (
@@ -380,8 +381,8 @@ function DeepDive({
       {drill.data ? (
         <>
           <Alert>
-            <AlertDescription className="whitespace-pre-wrap">
-              {drill.data.texto}
+            <AlertDescription>
+              <Markdown text={drill.data.texto} />
             </AlertDescription>
           </Alert>
           <div className="grid gap-4 md:grid-cols-2">

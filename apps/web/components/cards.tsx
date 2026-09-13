@@ -354,7 +354,7 @@ export function BarsTotal({
         <ChartContainer config={{ value: { label: title, color: "hsl(var(--primary))" } }} className="h-28 w-full">
           <BarChart data={data} margin={{ top: 4, right: 4, bottom: 0, left: 4 }}>
             <ChartTooltip cursor={false} content={<ChartTooltipContent hideLabel />} />
-            <XAxis dataKey="label" tickLine={false} axisLine={false} tickMargin={6} fontSize={9} interval={0} angle={-18} textAnchor="end" height={52} />
+            <XAxis dataKey="label" tickLine={false} axisLine={false} tickMargin={6} fontSize={9} interval={0} angle={-18} textAnchor="end" height={52} tickFormatter={(v: string) => (v.length > 14 ? `${v.slice(0, 13)}…` : v)} />
             <Bar dataKey="value" radius={[4, 4, 0, 0]}>
               {data.map((entry, i) => (
                 <Cell key={entry.label} fill={i === data.length - 1 ? "hsl(var(--primary))" : "hsl(var(--primary) / 0.2)"} />

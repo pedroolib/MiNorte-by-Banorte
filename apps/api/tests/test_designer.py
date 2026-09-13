@@ -318,3 +318,41 @@ def test_data_table_en_catalogo():
            "props": {"title": "T", "columns": [], "rows": []},
            "rationale": "x"}
     assert G.validate_choice(mal, ["data_table"]) != []
+
+
+def test_consistencia_suma_vs_total():
+    import app.agents.designer as G
+    base = {"insight_id": "a1", "component": "bars_total",
+            "props": {"title": "T", "total": "98500.00",
+                      "labels": ["A", "B"], "values": [3.0, 2.0]},
+            "rationale": "x"}
+    assert any("no cuadra" in e for e in G.validate_choice(base, ["bars_total"]))
+    ok = dict(base, props={**base["props"], "values": [50000, 48500]})
+    assert G.validate_choice(ok, ["bars_total"]) == []
+    donut = {"insight_id": "a1", "component": "donut_total",
+             "props": {"title": "T", "center_value": "$100.00",
+                       "center_label": "C",
+                       "segments": [{"label": "A", "value": 60},
+                                    {"label": "B", "value": 30}]},
+             "rationale": "x"}
+    assert any("no cuadra" in e for e in G.validate_choice(donut, ["donut_total"]))
+
+
+def test_bars_orden_descendente_si_lo_afirma():
+    import app.agents.designer as G
+    base = {"insight_id": "a1", "component": "bars_total",
+            "props": {"title": "Cómo se reparte lo que te deben",
+                      "total": "98500.00",
+                      "labels": ["A", "B", "C"],
+                      "values": [19500, 51500, 27500],
+                      "footnote": "A es quien más te debe."},
+            "rationale": "x"}
+    assert any("descendentes" in e for e in G.validate_choice(base, ["bars_total"]))
+    ok = dict(base, props={**base["props"],
+                           "labels": ["B", "C", "A"],
+                           "values": [51500, 27500, 19500]})
+    assert G.validate_choice(ok, ["bars_total"]) == []
+    # serie mensual sin claim de orden: no se exige descendente
+    serie = dict(base, props={"title": "Ingresos por mes", "total": "9",
+                              "labels": ["J", "A"], "values": [3, 6]})
+    assert G.validate_choice(serie, ["bars_total"]) == []
