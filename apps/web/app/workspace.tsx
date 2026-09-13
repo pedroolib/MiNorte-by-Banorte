@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 
 import { AskBar } from "@/components/ask-bar";
+import { CollectionsPanel } from "@/components/collections-panel";
 import { CriticalBar } from "@/components/critical-bar";
 import { Markdown } from "@/components/markdown";
 import { DynamicUI } from "@/components/registry";
@@ -24,6 +25,7 @@ import {
   EmptyTitle,
 } from "@/components/ui/empty";
 import { Skeleton } from "@/components/ui/skeleton";
+import { SettingsPanel } from "@/components/settings-panel";
 import { ThemeToggle } from "@/components/theme-toggle";
 import {
   fetchDrill,
@@ -33,6 +35,7 @@ import {
   sendChat,
 } from "@/lib/api";
 import type { GenCard } from "@/lib/types";
+import { cn } from "@/lib/utils";
 
 type Mode =
   | { name: "weekly" }
@@ -122,6 +125,7 @@ export default function Workspace() {
           </Link>
 
           <div className="ml-auto flex items-center gap-2">
+            <SettingsPanel />
             <ThemeToggle />
             <div className="ml-1 hidden size-9 place-items-center rounded-full bg-gradient-to-br from-primary to-red-700 text-xs font-bold text-white shadow-sm sm:grid">
               AN
@@ -235,6 +239,9 @@ function WeeklyView({
   onDeepDive: (insightId: string, title: string) => void;
   scenarios: import("@/lib/types").SavedScenario[];
 }) {
+  // Antes de cualquier return: los hooks no pueden ir tras un early return.
+  const [resolviendo, setResolviendo] = useState<string | null>(null);
+
   if (loading) {
     return (
       <div className="space-y-5" aria-label="Cargando dashboard">
@@ -279,12 +286,26 @@ function WeeklyView({
   const wrap = (c: GenCard) => (
     <div
       key={c.insight_id}
-      className="flex h-full flex-col gap-2 [&>*:first-child]:grow"
+      className={cn(
+        "flex h-full flex-col gap-2 [&>*:first-child]:grow",
+        // la cobranza abierta ocupa la fila completa sin mover el resto
+        resolviendo === c.insight_id && "lg:col-span-2",
+      )}
     >
       <DynamicUI
         schema={{ component: c.component, props: c.props } as never}
-        onAction={onAction}
+        onAction={
+          c.component === "receivables_resolution"
+            ? () =>
+                setResolviendo((r) =>
+                  r === c.insight_id ? null : c.insight_id,
+                )
+            : onAction
+        }
       />
+      {resolviendo === c.insight_id ? (
+        <CollectionsPanel onClose={() => setResolviendo(null)} />
+      ) : null}
       {drillables.has(c.insight_id) ? (
         <Button
           variant="ghost"

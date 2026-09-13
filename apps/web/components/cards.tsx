@@ -622,15 +622,9 @@ export function TimeSeries({
       <CardContent className="flex flex-1 flex-col">
         <ChartContainer config={{ value: { label: title, color } }} className="aspect-auto w-full flex-1 min-h-[140px]">
           <AreaChart data={data} margin={{ top: 8, right: 8, bottom: 0, left: 8 }}>
-            <defs>
-              <linearGradient id="tsFill" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor={color} stopOpacity={0.25} />
-                <stop offset="100%" stopColor={color} stopOpacity={0.02} />
-              </linearGradient>
-            </defs>
             <ChartTooltip cursor={false} content={<ChartTooltipContent hideLabel />} />
             <XAxis dataKey="label" tickLine={false} axisLine={false} tickMargin={6} fontSize={10} />
-            <Area dataKey="value" type="monotone" fill="url(#tsFill)" stroke={color} strokeWidth={2.5} dot={false} activeDot={{ r: 3.5 }} />
+            <Area dataKey="value" type="monotone" fill="none" stroke={color} strokeWidth={2.5} dot={false} activeDot={{ r: 3.5 }} />
             <ReferenceDot x={points[vals.indexOf(minVal)]?.label} y={minVal} r={3.5} fill="hsl(var(--card))" stroke={color} strokeWidth={2} />
           </AreaChart>
         </ChartContainer>
