@@ -351,7 +351,22 @@ function WeeklyView({
       .map((c) => c.insight_id)
       .filter((id) => id && !/^\d{4}-\d{2}_/.test(id) && id !== "consulta"),
   );
-  const wrap = (c: GenCard) => {
+  // Anti-huérfanos: en grillas de 2 columnas, si las tarjetas de
+  // contenido (no banners: esos van a fila completa) son impares, la
+  // última se estira a la fila completa en vez de dejar un hoyo.
+  const esBannerComp = (component: string) =>
+    component === "receipts_resolution" ||
+    component === "receivables_resolution";
+  const conHuerfana = (lista: GenCard[]) => {
+    const nContenido = lista.filter((c) => !esBannerComp(c.component)).length;
+    let vista = -1;
+    return lista.map((c) => {
+      if (!esBannerComp(c.component)) vista += 1;
+      return { tarjeta: c, esHuerfana: !esBannerComp(c.component) &&
+        nContenido % 2 === 1 && vista === nContenido - 1 };
+    });
+  };
+  const wrap = ({ tarjeta: c, esHuerfana }: { tarjeta: GenCard; esHuerfana: boolean }) => {
     const abierto = resolviendo === c.insight_id;
     const explicando = entendiendo === c.insight_id;
     const titulo = String((c.props as { title?: string }).title ?? c.component);
@@ -359,6 +374,8 @@ function WeeklyView({
     const esBanner =
       c.component === "receipts_resolution" ||
       c.component === "receivables_resolution";
+    // Anti-huérfanos: si las de contenido son impares, la última ocupa
+    // la fila completa en vez de dejar un hoyo (solo en lg, 2 columnas).
     return (
     <div
       key={c.insight_id}
@@ -366,6 +383,7 @@ function WeeklyView({
         "relative flex flex-col gap-2",
         // Los "Resolver" son barras de aviso: fila completa y alto natural.
         esBanner && "self-start lg:col-span-2",
+        esHuerfana && "lg:col-span-2",
         // Las de contenido se emparejan por fila y centran su contenido en
         // el alto sobrante, para que no quede un hueco al fondo. El panel
         // ("Cómo resolverlo" / "Entender por qué") flota encima de lo que
@@ -460,7 +478,7 @@ function WeeklyView({
             Requieren acción
           </h2>
           <div className="minorte-card-grid grid gap-4 lg:grid-cols-2">
-            {data.actions.map(wrap)}
+            {conHuerfana(data.actions).map(wrap)}
           </div>
         </section>
       ) : null}
@@ -471,7 +489,7 @@ function WeeklyView({
             Descubrimientos
           </h2>
           <div className="minorte-card-grid grid gap-4 lg:grid-cols-2">
-            {data.discovery.map(wrap)}
+            {conHuerfana(data.discovery).map(wrap)}
           </div>
         </section>
       ) : null}
