@@ -24,6 +24,7 @@ from app.integrations.mail.provider import MailError, get_mail_provider
 from app.operator import collections as op
 from app.repositories import collections_repo as col
 from app.repositories import financial_repo as fr
+from app.routes.tickets import router as tickets_router
 from app.schemas.cfdi import Cfdi
 from app.schemas.financial import FinancialSummary
 from app.schemas.transaction import Transaction
@@ -41,6 +42,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+app.include_router(tickets_router)
 
 
 def get_current_company() -> str:

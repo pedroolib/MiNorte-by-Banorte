@@ -317,6 +317,46 @@ def get_customer_contact(customer_rfc: str) -> dict:
             "customer_name": c.get("customer_name", "")}
 
 
+def extract_receipt(image_base64: str, mime: str = "image/jpeg") -> dict:
+    """Ticket real (foto en base64) -> extracción Vision (spec #19)."""
+    import base64
+
+    from app.integrations.invoicing import vision
+
+    return vision.extract_receipt(base64.b64decode(image_base64), mime)
+
+
+def match_receipt_to_transaction(extraction: dict) -> list[dict]:
+    """Candidatos de match ticket<->movimiento (misma fórmula que
+    `reconcile.py`, no se reimplementa el score)."""
+    from app.operator import receipts as op_receipts
+
+    cands = op_receipts.match_candidates(extraction, data.get_transactions())
+    return [_deep(c) for c in cands]
+
+
+def get_fiscal_profile() -> dict:
+    """Perfil fiscal del receptor (spec #11: autorización delegada)."""
+    from app.operator import receipts as op_receipts
+
+    return op_receipts.get_fiscal_profile()
+
+
+def prepare_invoice_request(extraction: dict, uso_cfdi: str = "G03") -> dict:
+    """Payload real para el Browser Agent. Nunca inventa datos: lo que
+    Vision no leyó llega null (el agente debe pedirlo, no adivinarlo).
+
+    NOTA (spec #19): el envío (`submit_invoice_request`) y la reconciliación
+    final (`reconcile_cfdi`) requieren confirmación humana antes de la
+    acción irreversible y viven en `POST /api/tickets/*` (con esa guarda
+    de UI), no en este loop de tools sin supervisión.
+    """
+    from app.operator import receipts as op_receipts
+
+    perfil = op_receipts.get_fiscal_profile()
+    return op_receipts.build_invoice_payload(extraction, perfil, uso_cfdi)
+
+
 def prepare_payment_reminder(receivable_id: str) -> dict:
     recs = {r["id"]: r for r in get_open_receivables()}
     if receivable_id not in recs:
@@ -434,6 +474,20 @@ _t("get_customer_contact", "Contacto del directorio por RFC (nunca inventa).",
    {"customer_rfc": _STR}, ["customer_rfc"], get_customer_contact)
 _t("prepare_payment_reminder", "Borrador SIN enviar (el envío es endpoint con guardas).",
    {"receivable_id": _STR}, ["receivable_id"], prepare_payment_reminder)
+_t("extract_receipt", "Ticket real (foto base64) -> extracción Vision: comercio, total, fecha, folio.",
+   {"image_base64": _STR, "mime": _STR}, ["image_base64", "mime"], extract_receipt)
+from app.integrations.invoicing.vision import EXTRACTION_SCHEMA as _EXTRACTION_OBJ  # noqa: E402
+
+_t("match_receipt_to_transaction",
+   "Candidatos de conciliación ticket<->movimiento (misma fórmula que reconcile.py).",
+   {"extraction": _EXTRACTION_OBJ}, ["extraction"], match_receipt_to_transaction)
+_t("get_fiscal_profile", "Perfil fiscal del receptor (RFC, régimen, email) para facturar.",
+   {}, [], get_fiscal_profile)
+_t("prepare_invoice_request",
+   "Payload real para el Browser Agent (spec #19). El envío requiere "
+   "confirmación humana vía POST /api/tickets/{id}/confirm, no este tool.",
+   {"extraction": _EXTRACTION_OBJ, "uso_cfdi": _STR},
+   ["extraction", "uso_cfdi"], prepare_invoice_request)
 
 
 def as_tool_defs() -> list[ToolDef]:
