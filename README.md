@@ -19,23 +19,15 @@ viene de un motor determinista; la IA interpreta, nunca inventa.
 
 ## 🏗️ Arquitectura
 
-Next.js 14 → FastAPI → Supabase Postgres
-                ↓
-     Financial Engine (determinista, 0 LLM)
-                ↓
-     MCP in-process (19 tools: banca, SAT, finanzas, cobranza)
-        ↙              ↓               ↘
-  Consultor      Analista → Diseñador → Composición
-
-**Regla de oro:** *el software determina qué es verdad; la IA determina cómo explicarlo.*
+![Diagrama de Arquitectura de MiNorte](docs/arquitecturaMiNorte.png)
 
 ## 📸 Producto
 
 ![Asesor con gráficas generativas](docs/screenshot-2026-09-13_06-17-58.png)
-*El Asesor responde con análisis y tarjetas visuales: dona de ingresos vs gastos, efectivo, CxC y DSO.*
+_El Asesor responde con análisis y tarjetas visuales: dona de ingresos vs gastos, efectivo, CxC y DSO._
 
 ![Semana financiera](docs/screenshot-2026-09-13_06-18-46.png)
-*Tu semana financiera: acciones pendientes (facturas, cobranza, ISR) + descubrimientos con gráficas.*
+_Tu semana financiera: acciones pendientes (facturas, cobranza, ISR) + descubrimientos con gráficas._
 
 ## 🚀 Quickstart
 
@@ -67,3 +59,4 @@ pnpm --dir apps/web build
 - Auth + RLS endurecido
 - Página del dashboard generativo con DynamicUI
 - Deploy a producción
+```
