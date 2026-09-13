@@ -10,15 +10,19 @@ import type {
   DraftItem,
   FinancialSummary,
   GenDashboard,
+  MatchCandidate,
   MatchItem,
   SavedScenario,
   ProfileSugerencia,
+  ReceiptExtraction,
   ReceivableItem,
   SendItem,
   SignalSet,
+  TicketDocument,
+  TicketItem,
 } from "./types";
 
-const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+export const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
 async function get<T>(path: string): Promise<T> {
   const r = await fetch(`${API}${path}`, { cache: "no-store" });
@@ -249,3 +253,54 @@ export const saveScenario = (body: {
   detalle: string;
   cifras?: Record<string, unknown>;
 }) => post<SavedScenario>("/api/scenarios", body);
+
+// ---------- Tickets (spec #3.3 caso 1, TIER 2) ----------
+
+export const uploadTicketPhoto = async (file: Blob, filename = "ticket.jpg") => {
+  const form = new FormData();
+  form.append("file", file, filename);
+  const r = await fetch(`${API}/api/tickets/upload`, { method: "POST", body: form });
+  if (!r.ok) {
+    const detail = await r.json().catch(() => null);
+    throw new Error(`API /api/tickets/upload: ${r.status} ${JSON.stringify(detail?.detail ?? detail)}`);
+  }
+  return r.json() as Promise<{
+    document: TicketDocument;
+    extraction: ReceiptExtraction;
+    candidates: MatchCandidate[];
+  }>;
+};
+
+export const createTicket = (
+  document_id: string,
+  transaction_id: string | null,
+  receptor_generico = false,
+) => post<TicketItem>("/api/tickets", { document_id, transaction_id, receptor_generico });
+
+export const fetchTickets = () => get<{ items: TicketItem[] }>("/api/tickets");
+
+export const fetchTicket = (id: string) => get<TicketItem>(`/api/tickets/${id}`);
+
+export const startTicket = (id: string, portal_url: string, headless = true) =>
+  post<TicketItem>(`/api/tickets/${id}/start`, { portal_url, headless });
+
+export const confirmTicket = (id: string, approve: boolean) =>
+  post<TicketItem>(`/api/tickets/${id}/confirm`, { approve });
+
+export const provideTicketInput = (id: string, field: string, value: string) =>
+  post<TicketItem>(`/api/tickets/${id}/provide_input`, { field, value });
+
+export const resumeTicket = (id: string, extra_steps = 0) =>
+  post<TicketItem>(`/api/tickets/${id}/resume`, { extra_steps });
+
+/** URL de la captura actual (funciona corriendo headless). `cacheBust`
+ * evita que el navegador reuse una imagen vieja para la misma URL. */
+export const ticketScreenshotUrl = (id: string, cacheBust: string | number) =>
+  `${API}/api/tickets/${id}/screenshot?t=${cacheBust}`;
+
+export const cancelTicket = (id: string) =>
+  post<TicketItem>(`/api/tickets/${id}/cancel`, {});
+
+export const reconcileTicket = (id: string, cfdi_xml?: string) =>
+  post<{ result: Record<string, unknown>; ticket: TicketItem }>(
+    `/api/tickets/${id}/reconcile`, { cfdi_xml });

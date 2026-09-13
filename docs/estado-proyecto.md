@@ -118,8 +118,36 @@ abstraído (`log`|`resend`). `/cobranza` funcional sin diseño.
    `insight_text`.
 6. Contador: narración del cierre (el cálculo ya existe).
 
-## TIER 2 — Ticket + browser (TUYO)
-Flujo spec §3.3 caso 1 + §19, con datos y contratos ya listos:
+## TIER 2 — Ticket + browser (HECHO, branch `feature/tickets-engine`)
+Engine + endpoints + Browser Agent real implementados y probados (146
+tests backend, incl. `test_receipts.py` con Playwright real contra una
+página local); falta correrlo en vivo contra un portal y comercio reales
+(requiere `OPENAI_API_KEY` real en `.env`, que este entorno no tenía) y
+el pulido visual de `/tickets` (hoy es crudo, como `/cobranza`).
+
+* `app/integrations/invoicing/vision.py`: `extract_receipt` (Vision, JSON
+  estricto: comercio/RFC/total/fecha/folio, campo no legible = null).
+* `app/operator/receipts.py`: `match_candidates` reutiliza tal cual
+  `reconcile.amount_score/date_score/merchant_score` (no se tocó el
+  motor); `build_invoice_payload` nunca inventa datos; `reconcile_cfdi`
+  parsea el XML real devuelto por el portal con el parser SAT existente.
+* `app/browser/agent.py` + `actions.py`: Browser Agent con Playwright
+  (accesibilidad real: rol/label/tipo, **cero coordenadas**), un tool-call
+  a OpenAI por paso, límite de pasos, frenos por CAPTCHA/auth inesperada/
+  dato faltante, y **nunca autoconfirma** una acción irreversible
+  (heurística por keyword + `type=submit`): se detiene en
+  `esperando_confirmacion` hasta `POST /api/tickets/{id}/confirm`.
+* `POST /api/tickets/upload`, `POST /api/tickets`, `GET /api/tickets(/{id})`,
+  `POST /api/tickets/{id}/{start,confirm,cancel,reconcile}` — mismo patrón
+  503-sin-Supabase que el resto de la API.
+* Migración `013_tickets.sql` (`documents`, `invoice_requests`, RLS demo).
+* MCP: `extract_receipt`, `match_receipt_to_transaction`,
+  `get_fiscal_profile`, `prepare_invoice_request` (el envío/reconciliación
+  reales exigen confirmación humana en la UI, no viven en el loop de tools).
+* `/tickets`: cámara real del dispositivo (`getUserMedia`, con fallback
+  `<input capture>`) -> match -> bitácora del agente -> aprobar/rechazar.
+
+Pendiente original de referencia (spec §3.3 caso 1 + §19):
 * **Entrada**: foto de ticket → `extract_receipt` (Vision, JSON estricto:
   total, fecha, comercio, RFC si visible) → match con `reconcile.score`
   existente → perfil fiscal en `seed/company.json` (RFC `CNM160812AB1`, etc.).
