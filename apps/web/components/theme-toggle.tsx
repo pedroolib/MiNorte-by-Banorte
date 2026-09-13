@@ -42,7 +42,7 @@ export function ThemeToggle() {
     transitionTimeout.current = window.setTimeout(() => {
       root.classList.remove("theme-transition");
       transitionTimeout.current = null;
-    }, 420);
+    }, 240);
     window.localStorage.setItem(THEME_KEY, next);
     setTheme(next);
   }
