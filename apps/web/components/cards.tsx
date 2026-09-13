@@ -322,7 +322,9 @@ export function HeroNumber({
 
 /* ---------------- multi_ring ---------------- */
 
-const RING_COLORS = ["#16a34a", "#d97706", "#eb0029", "#9da4ac"];
+// Rojo de marca + dorado cálido: buen contraste entre sí y ambos dentro
+// de la misma familia cálida (nada de gris/verde/morado que desentone).
+const RING_COLORS = ["hsl(var(--primary))", "#f5a524"];
 
 export function MultiRing({ items, footnote }: { items: { label: string; value: number }[]; footnote?: string }) {
   if (!items.length) return <Empty what="indicadores" />;
@@ -338,23 +340,28 @@ export function MultiRing({ items, footnote }: { items: { label: string; value: 
   return (
     <Card>
       <CardContent className="pt-6">
-        <div className="flex items-center justify-center gap-6">
-          <ChartContainer config={config} className="mx-auto aspect-square w-full max-w-[160px]">
-            <RadialBarChart data={data} innerRadius="30%" outerRadius="100%" startAngle={90} endAngle={-270}>
+        <div className="flex items-center gap-2 sm:gap-6">
+          <ChartContainer config={config} className="mx-auto aspect-square w-full max-w-[150px] shrink-0">
+            <RadialBarChart data={data} innerRadius="34%" outerRadius="100%" barCategoryGap="22%" startAngle={90} endAngle={-270}>
               <ChartTooltip cursor={false} content={<ChartTooltipContent hideLabel nameKey="name" />} />
               <PolarGrid gridType="circle" radialLines={false} stroke="none" />
-              <RadialBar dataKey="value" background={{ fill: "hsl(var(--muted))" }} cornerRadius={8} />
+              <RadialBar dataKey="value" background={{ fill: "hsl(var(--muted) / 0.5)" }} cornerRadius={99} />
               <PolarRadiusAxis tick={false} tickLine={false} axisLine={false}>
                 <Label
                   content={({ viewBox }) => {
                     if (viewBox && "cx" in viewBox && "cy" in viewBox) {
                       return (
                         <text x={viewBox.cx} y={viewBox.cy} textAnchor="middle" dominantBaseline="middle">
-                          <tspan x={viewBox.cx} y={(viewBox.cy || 0) - 8} fontSize="20" fontWeight="800" fill="hsl(var(--foreground))">
-                            {Math.round(num(items[0]?.value))}%
-                          </tspan>
-                          <tspan x={viewBox.cx} y={(viewBox.cy || 0) + 12} fontSize="10" fill="hsl(var(--muted-foreground))">
-                            {items[0]?.label}
+                          <tspan
+                            x={viewBox.cx}
+                            y={viewBox.cy}
+                            fontSize="24"
+                            fontWeight="800"
+                            letterSpacing="-0.02em"
+                            fill="hsl(var(--foreground))"
+                          >
+                            {Math.round(num(items[0]?.value))}
+                            <tspan fontSize="13" fontWeight="700" fill="hsl(var(--muted-foreground))">%</tspan>
                           </tspan>
                         </text>
                       );
@@ -365,15 +372,15 @@ export function MultiRing({ items, footnote }: { items: { label: string; value: 
               </PolarRadiusAxis>
             </RadialBarChart>
           </ChartContainer>
-          <ul className="space-y-2 text-sm">
+          <ul className="min-w-0 flex-1 divide-y divide-border/60">
             {items.map((item, i) => (
-              <li key={item.label} className="flex items-center gap-2">
+              <li key={item.label} className="flex items-center gap-2.5 py-2 first:pt-0 last:pb-0">
                 <span
-                  className="inline-block h-2 w-2 rounded-full"
+                  className="size-2.5 shrink-0 rounded-full"
                   style={{ background: RING_COLORS[i % RING_COLORS.length] }}
                 />
-                <span className="text-muted-foreground">{item.label}</span>
-                <strong>{Math.round(num(item.value))}%</strong>
+                <span className="min-w-0 flex-1 truncate text-sm text-muted-foreground">{item.label}</span>
+                <strong className="shrink-0 tabular-nums text-sm font-bold">{Math.round(num(item.value))}%</strong>
               </li>
             ))}
           </ul>
