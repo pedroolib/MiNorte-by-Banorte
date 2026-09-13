@@ -37,11 +37,11 @@ def test_matches_counts():
     r = client.get("/api/matches?limit=1")
     assert r.status_code == 200
     counts = r.json()["counts"]
-    assert counts["unmatched"] == 4  # los 4 sin factura
+    assert counts["unmatched"] == 5  # 4 egresos sin factura + 1 devolución-ingreso sin CFDI
     assert counts["auto"] >= 150     # 146 recibidos + 11 cobros
     assert counts["auto"] + counts["review"] + counts["unmatched"] == sum(counts.values())
     r2 = client.get("/api/matches?status=unmatched&limit=10")
-    assert len(r2.json()["items"]) == 4
+    assert len(r2.json()["items"]) == 5
 
 
 def test_summary_con_cxc_y_sin_factura():

@@ -65,6 +65,11 @@ if mcp is not None:  # pragma: no cover - transporte, no lógica
         return T.get_months_with_data()
 
     @mcp.tool()
+    def project_next_month(month: str | None = None) -> dict:
+        """Proyección determinista del mes siguiente."""
+        return T.project_next_month(month)
+
+    @mcp.tool()
     def get_signals(month: str | None = None) -> dict:
         """Señales del motor."""
         return T.get_signals(month)

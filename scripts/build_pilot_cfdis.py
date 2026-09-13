@@ -17,6 +17,8 @@ Reglas:
 - Recibidos: egresos conciliables (por nombre) salvo los 4 más chicos.
 - Emisor/Receptor desconocido -> XAXX010101000 (público general, honesto).
 - Todo marcado SIMULADO; UUIDs uuid5(piloto-...). Nada sale de private/.
+- --match-all: ignora impagados/exclusiones; TODO movimiento no-interno
+  lleva su CFDI (emitido=ingresos, recibido=egresos). Cero CxC simulada.
 """
 
 from __future__ import annotations
@@ -77,6 +79,9 @@ def main() -> None:
     ap.add_argument("--serie", default="PILOTO")
     ap.add_argument("--unpaid-n", type=int, default=5)
     ap.add_argument("--unpaid-seed", type=int, default=42)
+    ap.add_argument("--match-all", action="store_true",
+                    help="CFDI para TODO movimiento no-interno (sin CxC "
+                         "simulada ni exclusiones)")
     args = ap.parse_args()
 
     rows = list(csv.DictReader(open(args.csv, encoding="utf-8")))
@@ -103,8 +108,12 @@ def main() -> None:
         return p
 
     # --- emitidos pagados ---
-    cobros = [r for r in rows
-              if r["categoria"] == "spei_recibido" and r["es_interno"] == "0"]
+    if args.match_all:
+        cobros = [r for r in rows
+                  if r["tipo"] == "ingreso" and r["es_interno"] == "0"]
+    else:
+        cobros = [r for r in rows
+                  if r["categoria"] == "spei_recibido" and r["es_interno"] == "0"]
     for r in cobros:
         cobro = date.fromisoformat(r["fecha"][:10])
         cps, concepto = concepto_emitido(r["comercio"])
@@ -117,24 +126,31 @@ def main() -> None:
     n_pagados = len(cobros)
 
     # --- impagados: N clientes RNG (seed fijo), montos de su propio rango ---
-    rng = random.Random(args.unpaid_seed)
-    clientes = sorted({r["comercio"] for r in cobros if len(r["comercio"]) >= 4})
-    elegidos = rng.sample(clientes, min(args.unpaid_n, len(clientes)))
-    import calendar as _cal
-    ref = date.fromisoformat(max(r["fecha"][:10] for r in cobros))
-    mes = date(ref.year, ref.month, _cal.monthrange(ref.year, ref.month)[1])
+    elegidos: list[str] = []
     total_cxc = Decimal("0")
-    for i, cli in enumerate(elegidos):
-        propio = max(Decimal(r["deposito"]) for r in cobros if r["comercio"] == cli)
-        monto = monto_impagado(propio, montos_banco)
-        montos_banco.add(f"{monto:.2f}")
-        cps, concepto = concepto_emitido(cli)
-        guarda("emitido", monto, fecha=(mes - timedelta(days=i)).isoformat(),
-               forma="03", emisor_rfc=args.emisor_rfc, emisor_nombre=args.emisor_nombre,
-               emisor_reg=args.emisor_regimen, receptor_rfc=XAXX,
-               receptor_nombre=cli, receptor_cp=args.cp,
-               receptor_reg="612", uso="G03", cps=cps, concepto=concepto)
-        total_cxc += monto
+    if args.match_all:
+        print("match-all: sin CxC simulada")
+    else:
+        rng = random.Random(args.unpaid_seed)
+        clientes = sorted({r["comercio"] for r in cobros
+                           if len(r["comercio"]) >= 4})
+        elegidos = rng.sample(clientes, min(args.unpaid_n, len(clientes)))
+        import calendar as _cal
+        ref = date.fromisoformat(max(r["fecha"][:10] for r in cobros))
+        mes = date(ref.year, ref.month, _cal.monthrange(ref.year, ref.month)[1])
+        for i, cli in enumerate(elegidos):
+            propio = max(Decimal(r["deposito"]) for r in cobros
+                         if r["comercio"] == cli)
+            monto = monto_impagado(propio, montos_banco)
+            montos_banco.add(f"{monto:.2f}")
+            cps, concepto = concepto_emitido(cli)
+            guarda("emitido", monto, fecha=(mes - timedelta(days=i)).isoformat(),
+                   forma="03", emisor_rfc=args.emisor_rfc,
+                   emisor_nombre=args.emisor_nombre,
+                   emisor_reg=args.emisor_regimen, receptor_rfc=XAXX,
+                   receptor_nombre=cli, receptor_cp=args.cp,
+                   receptor_reg="612", uso="G03", cps=cps, concepto=concepto)
+            total_cxc += monto
 
     # --- recibidos: conciliables salvo los 4 más chicos ---
     from app.financial.reconcile import es_conciliable
@@ -150,9 +166,16 @@ def main() -> None:
             type=r["tipo"], source=r.get("source") or "bbva_mock",
             es_interno=r["es_interno"] == "1", categoria=r["categoria"])
 
-    conc = [r for r in rows if r["tipo"] == "egreso" and es_conciliable(_tx(r))]
-    sin = sorted(conc, key=lambda r: (Decimal(r["retiro"]), r["id"]))[:4]
-    sin_ids = {r["id"] for r in sin}
+    if args.match_all:
+        # TODO no-interno lleva CFDI: egresos (recibidos) sin excepciones.
+        conc = [r for r in rows
+                if r["tipo"] == "egreso" and r["es_interno"] == "0"]
+        sin_ids: set[str] = set()
+        print(f"match-all: recibidos para {len(conc)} egresos")
+    else:
+        conc = [r for r in rows if r["tipo"] == "egreso" and es_conciliable(_tx(r))]
+        sin = sorted(conc, key=lambda r: (Decimal(r["retiro"]), r["id"]))[:4]
+        sin_ids = {r["id"] for r in sin}
     n_rec = 0
     for r in conc:
         if r["id"] in sin_ids:
@@ -177,8 +200,9 @@ def main() -> None:
         assert c.subtotal + c.iva == c.total
     print(f"emitidos={n_pagados + len(elegidos)} ({n_pagados} pagados + "
           f"{len(elegidos)} CxC=${total_cxc}) recibidos={n_rec}")
-    print(f"4 sin factura suman "
-          f"${sum((Decimal(r['retiro']) for r in sin), Decimal('0'))}")
+    if not args.match_all:
+        print(f"4 sin factura suman "
+              f"${sum((Decimal(r['retiro']) for r in sin), Decimal('0'))}")
     print(f"{len(files)} XMLs parsean OK, UUIDs únicos, SIMULADO marcado")
 
 

@@ -44,7 +44,8 @@ def test_parseo_y_mapeo(xlsx):
     assert rows[2]["categoria"] == "comision"
     rep = tdc.validar(movs, 2026, 7)
     assert rep == {"n": 3, "compras": Decimal("500"),
-                   "abonos": Decimal("200"), "anualidad": Decimal("100")}
+                   "abonos": Decimal("200"), "anualidad": Decimal("100"),
+                   "fuera_periodo": []}
 
 
 def test_falla_fuerte_ante_layout_distinto(tmp_path):

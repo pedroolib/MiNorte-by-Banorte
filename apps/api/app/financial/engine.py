@@ -617,6 +617,71 @@ METRIC_CATALOG: dict[str, dict] = {
 }
 
 
+def project_next_month(txns: list[Transaction], cfdis: list[Cfdi],
+                       matches: list[Match], anio: int, mes: int,
+                       ventana: int = 3) -> dict:
+    """Proyección determinista del mes siguiente (run-rate + promedio).
+
+    Método: promedio de ventas/gastos de los últimos `ventana` meses CON
+    DATOS (misma base que signals(), para no mezclar fuentes). Sin magia:
+    supone que el ritmo se mantiene; lo declara en supuestos.
+    Confianza: alta (3+ meses base y volatilidad moderada), media
+    (2 meses o volatilidad alta), baja (1 solo mes: es run-rate puro).
+    Nunca inventa: con 1 mes lo dice explícitamente.
+    """
+    base: list[tuple[int, int]] = []
+    a, m = anio, mes
+    while len(base) < ventana:
+        s = signals(txns, cfdis, matches, a, m)
+        if s.get("tiene_datos"):
+            base.append((a, m))
+        m -= 1
+        if m == 0:
+            a, m = a - 1, 12
+        if a < anio - 2:
+            break
+    pa, pm = (anio, mes + 1) if mes < 12 else (anio + 1, 1)
+    if not base:
+        return {"month_origen": f"{anio}-{mes:02d}",
+                "month_proyectado": f"{pa}-{pm:02d}",
+                "ventas": None, "gastos": None, "utilidad": None,
+                "metodo": "sin_base",
+                "confianza": "ninguna",
+                "supuestos": ["el mes origen no tiene datos: sin base"],
+                "base_meses": []}
+    filas = [signals(txns, cfdis, matches, ba, bm) for ba, bm in base]
+    n = len(filas)
+    ventas = sum((f["ventas"] for f in filas), CERO) / n
+    gastos = sum((f["gastos"] for f in filas), CERO) / n
+    vols = [f.get("volatilidad_flujo") for f in filas
+            if f.get("volatilidad_flujo") is not None]
+    vol_alta = any(v is not None and float(v) > 2 for v in vols)
+    if n >= 3 and not vol_alta:
+        confianza = "alta"
+    elif n >= 2:
+        confianza = "media"
+    else:
+        confianza = "baja"
+    supuestos = [
+        f"promedio de {n} mes(es) con datos "
+        f"({', '.join(f'{ba}-{bm:02d}' for ba, bm in sorted(base))})",
+        "se supone ritmo constante: sin cambios de ventas, gastos ni clientes",
+    ]
+    if n == 1:
+        supuestos.append("UN SOLO mes base: es run-rate puro, no tendencia")
+    if vol_alta:
+        supuestos.append("flujo diario volátil: el rango real puede variar")
+    out = {"month_origen": f"{anio}-{mes:02d}",
+           "month_proyectado": f"{pa}-{pm:02d}",
+           "ventas": ventas, "gastos": gastos, "utilidad": ventas - gastos,
+           "metodo": "promedio_ventana" if n > 1 else "run_rate",
+           "confianza": confianza, "supuestos": supuestos,
+           "base_meses": [f"{ba}-{bm:02d}" for ba, bm in sorted(base)]}
+    red = _redondear({k: v for k, v in out.items()
+                      if k in ("ventas", "gastos", "utilidad")})
+    return {**out, **red}
+
+
 def metric_catalog() -> list[dict]:
     """Catálogo auto-generado: una entrada por key de signals()."""
     return [{"nombre": k, "descripcion": v[0], "unidad": v[1], "familia": v[2]}

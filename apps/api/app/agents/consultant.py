@@ -24,6 +24,10 @@ Reglas duras:
   mensualidad, cobertura y supuestos declarados. Prohibido elegir otra tool
   de simulación: no existen.
 - Cita las cifras exactas que devuelven las tools.
+- Futuro (proyecciones, 'próximo mes', 'qué viene'): SOLO vía
+  project_next_month. Sin llamarla, PROHIBIDO proyectar: di que no hay
+  proyección y ofrece calcularla. Al darla, declara método, confianza y
+  supuestos, y marca cada cifra como estimada, nunca como dato.
 - PROHIBIDO dibujar gráficas o tablas con caracteres en el texto
   (barras █▓, tablas ASCII con pipes): para lo visual están las
   tarjetas; el texto interpreta y explica, no dibuja.
@@ -90,6 +94,7 @@ def _contexto() -> str:
 
 CONSULTANT_TOOLS = [
     "get_financial_summary", "get_cash_flow", "get_signals",
+    "get_months_with_data", "project_next_month",
     "get_open_receivables", "get_variables_gasto", "evaluar_gasto",
     "banorte_get_credit_options", "banorte_compare_loans",
     "banorte_get_transactions", "get_merchants", "get_merchant_detail",

@@ -61,11 +61,20 @@ def to_cfdi(r: dict, company_id: str) -> Cfdi:
 
 
 def fetch_all(sb: Any, company_id: str) -> list[Cfdi]:
-    res = (
-        sb.table("cfdis").select("*").eq("company_id", company_id)
-        .order("fecha_emision").execute()
-    )
-    return [to_cfdi(r, company_id) for r in (res.data or [])]
+    # Paginado: PostgREST topa en 1000 filas por request.
+    out: list[Cfdi] = []
+    off = 0
+    while True:
+        res = (
+            sb.table("cfdis").select("*").eq("company_id", company_id)
+            .order("fecha_emision").range(off, off + 999).execute()
+        )
+        filas = res.data or []
+        out.extend(to_cfdi(r, company_id) for r in filas)
+        if len(filas) < 1000:
+            break
+        off += 1000
+    return out
 
 
 def count(sb: Any, company_id: str, tipo: str | None = None) -> int:

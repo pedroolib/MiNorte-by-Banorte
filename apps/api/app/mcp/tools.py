@@ -181,6 +181,27 @@ def get_months_with_data() -> dict:
     return {"months": meses, "latest": meses[-1] if meses else None}
 
 
+def project_next_month(month: str | None = None) -> dict:
+    """Proyección determinista del mes siguiente (run-rate + promedio).
+
+    ÚNICA fuente válida para hablar de futuro: trae utilidad/ventas/
+    gastos proyectados + método + confianza + supuestos + meses base.
+    Sin llamar esta tool, PROHIBIDO proyectar.
+    """
+    a, m = _month_arg(month)
+    p = en.project_next_month(data.get_transactions(), data.get_cfdis(),
+                              data.get_matches(), a, m)
+
+    def _j(v):
+        if isinstance(v, Decimal):
+            return str(v)
+        if isinstance(v, list):
+            return [_j(x) for x in v]
+        return v
+
+    return {k: _j(v) for k, v in p.items()}
+
+
 def get_signals(month: str | None = None) -> dict:
     a, m = _month_arg(month)
     s = en.signals(data.get_transactions(), data.get_cfdis(),
@@ -377,6 +398,10 @@ _t("get_months_with_data",
    "Meses YYYY-MM con transacciones + latest. Úsala antes de analizar: "
    "un mes fuera de la lista NO tiene datos (no analizar ni comparar).",
    {}, [], get_months_with_data)
+_t("project_next_month",
+   "Proyección determinista del mes siguiente (utilidad/ventas/gastos + "
+   "método + confianza + supuestos). ÚNICA vía para hablar de futuro.",
+   {"month": _STR}, [], project_next_month)
 _t("get_signals", "Señales del motor para análisis.", {"month": _STR}, [], get_signals)
 _t("get_metric",
    "Una métrica por nombre (ver metric_catalog). Con month resuelve ese mes.",
