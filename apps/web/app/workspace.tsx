@@ -13,6 +13,7 @@ import {
 import { AskBar } from "@/components/ask-bar";
 import { CollectionsPanel } from "@/components/collections-panel";
 import { CriticalBar } from "@/components/critical-bar";
+import { InlineAdvice } from "@/components/inline-advice";
 import { Markdown } from "@/components/markdown";
 import { DynamicUI } from "@/components/registry";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -82,7 +83,24 @@ export default function Workspace() {
         typeof window === "undefined"
           ? null
           : window.localStorage.getItem(LS_KEY);
-      const r = await sendChat(t, cid);
+      let r;
+      try {
+        r = await sendChat(t, cid);
+      } catch (e) {
+        // El id guardado puede apuntar a una conversación que ya no existe
+        // (base recargada, otro COMPANY_ID). No es un error del usuario:
+        // lo tiramos y arrancamos conversación nueva en el mismo clic.
+        if (
+          cid &&
+          e instanceof Error &&
+          e.message.includes("/api/chat: 404")
+        ) {
+          window.localStorage.removeItem(LS_KEY);
+          r = await sendChat(t, null);
+        } else {
+          throw e;
+        }
+      }
       if (typeof window !== "undefined") {
         window.localStorage.setItem(LS_KEY, r.conversation_id);
       }
@@ -99,15 +117,6 @@ export default function Workspace() {
     } finally {
       setBusy(false);
     }
-  }
-
-  function preguntaPara(component: string, props: Record<string, unknown>) {
-    const p = props as Record<string, string | number>;
-    if (component === "receipts_resolution")
-      return `Tengo ${p.count} gastos sin factura por $${p.total}, ¿cómo los resuelvo?`;
-    if (component === "receivables_resolution")
-      return `Tengo ${p.count} facturas por cobrar por $${p.total}, ¿cómo las cobro?`;
-    return `¿Qué hago con esto: ${String(props.title ?? component)}?`;
   }
 
   return (
@@ -188,7 +197,6 @@ export default function Workspace() {
           error={dashboard.isError}
           retry={() => dashboard.refetch()}
           data={dashboard.data ?? null}
-          onAction={(c, p) => preguntar(preguntaPara(c, p))}
           onDeepDive={(id, title) =>
             setMode({ name: "deep_dive", insightId: id, title })
           }
@@ -198,6 +206,15 @@ export default function Workspace() {
       </main>
     </div>
   );
+}
+
+function preguntaPara(component: string, props: Record<string, unknown>) {
+  const p = props as Record<string, string | number>;
+  if (component === "receipts_resolution")
+    return `Tengo ${p.count} gastos sin factura por $${p.total}, ¿cómo los resuelvo?`;
+  if (component === "receivables_resolution")
+    return `Tengo ${p.count} facturas por cobrar por $${p.total}, ¿cómo las cobro?`;
+  return `¿Qué hago con esto: ${String(props.title ?? component)}?`;
 }
 
 /**
@@ -227,7 +244,6 @@ function WeeklyView({
   error,
   retry,
   data,
-  onAction,
   onDeepDive,
   scenarios,
 }: {
@@ -235,7 +251,6 @@ function WeeklyView({
   error: boolean;
   retry: () => void;
   data: import("@/lib/types").GenDashboard | null;
-  onAction: (component: string, props: Record<string, unknown>) => void;
   onDeepDive: (insightId: string, title: string) => void;
   scenarios: import("@/lib/types").SavedScenario[];
 }) {
@@ -283,28 +298,33 @@ function WeeklyView({
       .map((c) => c.insight_id)
       .filter((id) => id && !/^\d{4}-\d{2}_/.test(id) && id !== "consulta"),
   );
-  const wrap = (c: GenCard) => (
+  const wrap = (c: GenCard) => {
+    const abierto = resolviendo === c.insight_id;
+    return (
     <div
       key={c.insight_id}
       className={cn(
-        "flex h-full flex-col gap-2 [&>*:first-child]:grow",
-        // la cobranza abierta ocupa la fila completa sin mover el resto
-        resolviendo === c.insight_id && "lg:col-span-2",
+        "flex flex-col gap-2",
+        // Con todo cerrado las tarjetas se emparejan. Con un panel abierto
+        // cada una toma su alto natural: la tarjeta no crece, el panel cae
+        // debajo y lo que sigue se recorre.
+        !resolviendo && "h-full [&>*:first-child]:grow",
       )}
     >
       <DynamicUI
         schema={{ component: c.component, props: c.props } as never}
-        onAction={
-          c.component === "receivables_resolution"
-            ? () =>
-                setResolviendo((r) =>
-                  r === c.insight_id ? null : c.insight_id,
-                )
-            : onAction
-        }
+        onAction={() => setResolviendo(abierto ? null : c.insight_id)}
       />
-      {resolviendo === c.insight_id ? (
-        <CollectionsPanel onClose={() => setResolviendo(null)} />
+      {abierto ? (
+        c.component === "receivables_resolution" ? (
+          // cobranza tiene backend propio: se opera, no se consulta
+          <CollectionsPanel onClose={() => setResolviendo(null)} />
+        ) : (
+          <InlineAdvice
+            question={preguntaPara(c.component, c.props)}
+            onClose={() => setResolviendo(null)}
+          />
+        )
       ) : null}
       {drillables.has(c.insight_id) ? (
         <Button
@@ -318,7 +338,8 @@ function WeeklyView({
         </Button>
       ) : null}
     </div>
-  );
+    );
+  };
   return (
     <div className="space-y-7">
       <header className="space-y-3">
@@ -360,7 +381,12 @@ function WeeklyView({
           <h2 className="text-sm font-bold tracking-tight">
             Requieren acción
           </h2>
-          <div className="minorte-card-grid grid gap-4 lg:grid-cols-2">
+          <div
+            className={cn(
+              "minorte-card-grid grid gap-4 lg:grid-cols-2",
+              resolviendo && "items-start",
+            )}
+          >
             {data.actions.map(wrap)}
           </div>
         </section>
@@ -371,7 +397,12 @@ function WeeklyView({
           <h2 className="text-sm font-bold tracking-tight">
             Descubrimientos
           </h2>
-          <div className="minorte-card-grid grid gap-4 lg:grid-cols-2">
+          <div
+            className={cn(
+              "minorte-card-grid grid gap-4 lg:grid-cols-2",
+              resolviendo && "items-start",
+            )}
+          >
             {data.discovery.map(wrap)}
           </div>
         </section>
