@@ -5,7 +5,6 @@ import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
-  ArrowLeft,
   BookmarkPlus,
   Loader2,
   LogOut,
@@ -18,7 +17,6 @@ import {
 import { AskBar } from "@/components/ask-bar";
 import { BanorteMark } from "@/components/banorte-mark";
 import { CollectionsPanel } from "@/components/collections-panel";
-import { CriticalBar } from "@/components/critical-bar";
 import { InlineAdvice } from "@/components/inline-advice";
 import { Markdown } from "@/components/markdown";
 import { DynamicUI } from "@/components/registry";
@@ -46,10 +44,6 @@ import { clearAccount, getAccount, initialsFor, type DummyAccount } from "@/lib/
 import type { GenCard } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
-type Mode =
-  | { name: "weekly" }
-  | { name: "consultant"; question: string };
-
 const LS_KEY = "minorte_conversation_id";
 
 /**
@@ -57,10 +51,22 @@ const LS_KEY = "minorte_conversation_id";
  * "Entender por qué" y "Cómo resolverlo" se explican inline en su tarjeta.
  * La barra de críticos vive sobre cualquier modo.
  */
+/** "Buenos días" 5-12h, "Buenas tardes" 12-19h, "Buenas noches" el resto. */
+function saludoPorHora(hora: number): string {
+  if (hora >= 5 && hora < 12) return "Buenos días";
+  if (hora >= 12 && hora < 19) return "Buenas tardes";
+  return "Buenas noches";
+}
+
 export default function Workspace() {
-  const [mode, setMode] = useState<Mode>({ name: "weekly" });
   const [busy, setBusy] = useState(false);
   const [toastError, setToastError] = useState(false);
+  const [saludo, setSaludo] = useState<string | null>(null);
+
+  useEffect(() => {
+    const nombre = getAccount()?.nombre.split(" ")[0];
+    setSaludo(nombre ? `${saludoPorHora(new Date().getHours())}, ${nombre}` : saludoPorHora(new Date().getHours()));
+  }, []);
   const [answer, setAnswer] = useState<{
     pregunta: string;
     respuesta: string;
@@ -120,7 +126,6 @@ export default function Workspace() {
         cid: r.conversation_id,
         evaluable: (r.tools_usados ?? []).includes("evaluar_gasto"),
       });
-      setMode({ name: "consultant", question: t });
     } catch (e) {
       setError(e instanceof Error ? e.message : "No se pudo preguntar");
       setToastError(true);
@@ -150,7 +155,9 @@ export default function Workspace() {
       </header>
 
       <main className="mx-auto max-w-7xl space-y-5 px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
-        <CriticalBar />
+        {saludo ? (
+          <p className="text-2xl font-bold tracking-tight">{saludo}</p>
+        ) : null}
 
         <div className="relative">
           <div className="pointer-events-none absolute inset-y-0 left-4 hidden items-center sm:flex">
@@ -159,6 +166,25 @@ export default function Workspace() {
           <div className="sm:[&_input]:pl-10">
             <AskBar onAsk={preguntar} busy={busy} />
           </div>
+          {answer ? (
+            <div className="absolute inset-x-0 top-full z-30 pt-2">
+              <AutoHidePanel key={answer.cid ?? answer.pregunta} onClose={() => setAnswer(null)}>
+                <ConsultantView
+                  answer={answer}
+                  onClose={() => setAnswer(null)}
+                  onSave={async () => {
+                    await saveScenario({
+                      conversation_id: answer.cid,
+                      titulo: answer.pregunta.slice(0, 80),
+                      detalle: answer.respuesta.slice(0, 500),
+                      cifras: {},
+                    });
+                    scenarios.refetch();
+                  }}
+                />
+              </AutoHidePanel>
+            </div>
+          ) : null}
         </div>
 
         {error ? (
@@ -168,28 +194,6 @@ export default function Workspace() {
           </Alert>
         ) : null}
 
-        {mode.name !== "weekly" ? (
-          <Button variant="outline" size="sm" onClick={() => setMode({ name: "weekly" })}>
-            <ArrowLeft className="size-4" /> Volver a mi resumen
-          </Button>
-        ) : null}
-
-        {mode.name === "consultant" && answer ? (
-        <ConsultantView
-          answer={answer}
-          onSave={async () => {
-            await saveScenario({
-              conversation_id: answer.cid,
-              titulo: answer.pregunta.slice(0, 80),
-              detalle: answer.respuesta.slice(0, 500),
-              cifras: {},
-            });
-            scenarios.refetch();
-          }}
-        />
-        ) : null}
-
-        {mode.name === "weekly" ? (
         <WeeklyView
           loading={dashboard.isLoading}
           error={dashboard.isError}
@@ -198,7 +202,6 @@ export default function Workspace() {
           onAsk={preguntar}
           scenarios={scenarios.data?.items ?? []}
         />
-        ) : null}
       </main>
 
       {(busy || toastError) && (
@@ -519,9 +522,15 @@ function WeeklyView({
   );
 }
 
+/**
+ * Respuesta del asesor DENTRO de un desplegable bajo la barra de preguntas,
+ * igual que "Cómo resolverlo" y "Entender por qué": nada de navegar a otra
+ * vista, el dashboard completo sigue detrás.
+ */
 function ConsultantView({
   answer,
   onSave,
+  onClose,
 }: {
   answer: {
     pregunta: string;
@@ -530,21 +539,25 @@ function ConsultantView({
     evaluable: boolean;
   };
   onSave: () => Promise<void>;
+  onClose: () => void;
 }) {
   const [saved, setSaved] = useState(false);
   return (
-    <div className="space-y-4">
-      <div className="flex items-center gap-2">
-        <Badge>Vista temporal</Badge>
-        <h2 className="text-lg font-bold">{answer.pregunta}</h2>
+    <div className="rounded-2xl border border-primary/20 bg-card/55 p-4 shadow-xl backdrop-blur-lg sm:p-5">
+      <div className="mb-2 flex items-start justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <Badge variant="secondary">Respuesta</Badge>
+          <h2 className="text-base font-bold">{answer.pregunta}</h2>
+        </div>
+        <Button variant="ghost" size="icon" onClick={onClose} aria-label="Cerrar">
+          <X className="size-4" />
+        </Button>
       </div>
-      <Alert>
-        <AlertDescription>
-          <Markdown text={answer.respuesta} />
-        </AlertDescription>
-      </Alert>
+      <div className="text-sm">
+        <Markdown text={answer.respuesta} />
+      </div>
       {answer.tarjetas.length > 0 ? (
-        <div className="grid gap-4 md:grid-cols-2">
+        <div className="mt-4 grid gap-4 md:grid-cols-2">
           {answer.tarjetas.map((c, i) => (
             <DynamicUI
               key={c.insight_id + i}
@@ -556,6 +569,7 @@ function ConsultantView({
       {answer.evaluable && !saved ? (
         <Button
           variant="outline"
+          className="mt-4"
           onClick={async () => {
             await onSave();
             setSaved(true);
@@ -564,7 +578,7 @@ function ConsultantView({
           <BookmarkPlus className="size-4" /> Guardar escenario
         </Button>
       ) : null}
-      {saved ? <Badge variant="success">Escenario guardado</Badge> : null}
+      {saved ? <Badge variant="success" className="mt-4">Escenario guardado</Badge> : null}
     </div>
   );
 }
