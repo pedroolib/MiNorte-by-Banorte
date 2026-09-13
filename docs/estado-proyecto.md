@@ -105,7 +105,9 @@ abstraído (`log`|`resend`). `/cobranza` funcional sin diseño.
    (bars/time_series) exigen ≥2 puntos alineados: una barra sola se
    rechaza (el modelo trae meses pasados con get_metric o elige otra).
    Rotación dura por week_id (no por fecha): la semana anterior no
-   repite salvo pool corto. Modelos: loops de tools usan `OPENAI_TOOL_MODEL`
+   Rotación dura por week_id (no por fecha): la semana anterior no
+   repite salvo pool corto. Formateo determinista: decimales largos en
+   textos → máx 2 + comas ("2,715.47"); años/UUIDs intactos. Modelos: loops de tools usan `OPENAI_TOOL_MODEL`
    (mini; los reasoning nuevos rechazan function tools) y la elección
    de tarjetas usa flagship (`chat_json` sin tools sí lo acepta);
    `chat_json(..., strict=False)` para schemas con props libres.

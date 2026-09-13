@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { SendHorizonal } from "lucide-react";
+import { Loader2, SendHorizonal } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -39,10 +39,14 @@ export function AskBar({
       <Button
         onClick={enviar}
         disabled={busy || !texto.trim()}
-        aria-label="Enviar pregunta"
+        aria-label={busy ? "Generando respuesta" : "Enviar pregunta"}
         className="size-11 rounded-xl px-0 shadow-[0_8px_20px_-8px_rgba(235,0,41,0.8)]"
       >
-        <SendHorizonal className="size-4" />
+        {busy ? (
+          <Loader2 className="size-4 animate-spin" aria-label="cargando" />
+        ) : (
+          <SendHorizonal className="size-4" />
+        )}
       </Button>
     </div>
   );
