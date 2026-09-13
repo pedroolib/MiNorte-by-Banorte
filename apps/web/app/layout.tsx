@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import { OnboardingGate } from "@/components/onboarding-gate";
 import { Providers } from "./providers";
 
 export const metadata: Metadata = {
@@ -15,7 +16,9 @@ export default function RootLayout({
   return (
     <html lang="es" suppressHydrationWarning>
       <body className="min-h-screen bg-background text-foreground antialiased">
-        <Providers>{children}</Providers>
+        <Providers>
+          <OnboardingGate>{children}</OnboardingGate>
+        </Providers>
       </body>
     </html>
   );

@@ -26,6 +26,7 @@ export default function Chat() {
   const [cid, setCid] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [toastError, setToastError] = useState(false);
   const bottom = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -60,6 +61,8 @@ export default function Chat() {
       ]);
     } catch (e) {
       setError(String(e));
+      setToastError(true);
+      window.setTimeout(() => setToastError(false), 4000);
     } finally {
       setBusy(false);
     }
@@ -67,6 +70,10 @@ export default function Chat() {
 
   return (
     <main style={{ maxWidth: 700, margin: "0 auto", padding: 16, fontFamily: "monospace" }}>
+      <style>{`
+        @keyframes mn-spin { to { transform: rotate(360deg); } }
+        @keyframes mn-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.45; } }
+      `}</style>
       <h1>Consultor — crudo (siempre igual)</h1>
       <p>
         <a href="/">← inicio</a> · <a href="/debug">debug</a> ·{" "}
@@ -116,7 +123,22 @@ export default function Chat() {
             )}
           </div>
         ))}
-        {busy && <p>el consultor está revisando tus números…</p>}
+        {busy && (
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
+            <span
+              aria-label="cargando"
+              style={{
+                width: 22, height: 22, borderRadius: "50%",
+                border: "3px solid #f0c9d1", borderTopColor: "#eb0029",
+                animation: "mn-spin 0.8s linear infinite",
+              }}
+            />
+            <span style={{ fontWeight: 800, color: "#eb0029", animation: "mn-pulse 1.4s ease-in-out infinite" }}>
+              MN
+            </span>
+            <p style={{ margin: 0 }}>el consultor está revisando tus números…</p>
+          </div>
+        )}
         <div ref={bottom} />
       </div>
 
@@ -136,9 +158,36 @@ export default function Chat() {
           style={{ flex: 1, padding: 8 }}
         />
         <button type="submit" disabled={busy}>
-          Enviar
+          {busy ? "…" : "Enviar"}
         </button>
       </form>
+
+      {(busy || toastError) && (
+        <div
+          role="status"
+          style={{
+            position: "fixed", bottom: 20, right: 20, zIndex: 50,
+            display: "flex", alignItems: "center", gap: 10,
+            background: toastError ? "#fff0f2" : "#17191c",
+            color: toastError ? "#bc0021" : "#fff",
+            border: toastError ? "1px solid #eb0029" : "none",
+            padding: "10px 14px", borderRadius: 10,
+            fontSize: 13, boxShadow: "0 8px 24px rgba(0,0,0,.18)",
+          }}
+        >
+          {!toastError && (
+            <span
+              style={{
+                width: 16, height: 16, borderRadius: "50%",
+                border: "2px solid rgba(255,255,255,.35)",
+                borderTopColor: "#fff",
+                animation: "mn-spin 0.8s linear infinite",
+              }}
+            />
+          )}
+          {toastError ? "No se pudo generar la respuesta" : "Generando tu respuesta…"}
+        </div>
+      )}
     </main>
   );
 }

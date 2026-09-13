@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   ArrowLeft,
   BookmarkPlus,
@@ -14,6 +15,7 @@ import {
 } from "lucide-react";
 
 import { AskBar } from "@/components/ask-bar";
+import { BanorteMark } from "@/components/banorte-mark";
 import { CollectionsPanel } from "@/components/collections-panel";
 import { CriticalBar } from "@/components/critical-bar";
 import { InlineAdvice } from "@/components/inline-advice";
@@ -39,6 +41,7 @@ import {
   saveScenario,
   sendChat,
 } from "@/lib/api";
+import { clearAccount, getAccount, initialsFor, type DummyAccount } from "@/lib/auth";
 import type { GenCard } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -56,6 +59,7 @@ const LS_KEY = "minorte_conversation_id";
 export default function Workspace() {
   const [mode, setMode] = useState<Mode>({ name: "weekly" });
   const [busy, setBusy] = useState(false);
+  const [toastError, setToastError] = useState(false);
   const [answer, setAnswer] = useState<{
     pregunta: string;
     respuesta: string;
@@ -118,6 +122,8 @@ export default function Workspace() {
       setMode({ name: "consultant", question: t });
     } catch (e) {
       setError(e instanceof Error ? e.message : "No se pudo preguntar");
+      setToastError(true);
+      window.setTimeout(() => setToastError(false), 4000);
     } finally {
       setBusy(false);
     }
@@ -137,9 +143,7 @@ export default function Workspace() {
           <div className="ml-auto flex items-center gap-2">
             <SettingsPanel />
             <ThemeToggle />
-            <div className="ml-1 hidden size-9 place-items-center rounded-full bg-gradient-to-br from-primary to-red-700 text-xs font-bold text-white shadow-sm sm:grid">
-              AN
-            </div>
+            <CuentaAvatar />
           </div>
         </div>
       </header>
@@ -195,6 +199,84 @@ export default function Workspace() {
         />
         ) : null}
       </main>
+
+      {(busy || toastError) && (
+        <div
+          role="status"
+          className={
+            toastError
+              ? "fixed bottom-5 right-5 z-50 flex items-center gap-2.5 rounded-xl border border-[#eb0029] bg-[#fff0f2] px-4 py-2.5 text-sm font-semibold text-[#bc0021] shadow-[0_8px_24px_rgba(0,0,0,0.18)]"
+              : "fixed bottom-5 right-5 z-50 flex items-center gap-2.5 rounded-xl bg-[#17191c] px-4 py-2.5 text-sm font-semibold text-white shadow-[0_8px_24px_rgba(0,0,0,0.18)]"
+          }
+        >
+          {!toastError && <Loader2 className="size-4 animate-spin" />}
+          {toastError ? "No se pudo generar la respuesta" : "Generando tu respuesta…"}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Avatar del header: iniciales reales de la cuenta demo vinculada +
+ * "cerrar sesión" (mismo patrón anclado que SettingsPanel). */
+function CuentaAvatar() {
+  const router = useRouter();
+  const [open, setOpen] = useState(false);
+  const [account, setAccount] = useState<DummyAccount | null>(null);
+  const box = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    setAccount(getAccount());
+  }, []);
+
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
+    const onClick = (e: MouseEvent) => {
+      if (box.current && !box.current.contains(e.target as Node)) setOpen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    document.addEventListener("mousedown", onClick);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      document.removeEventListener("mousedown", onClick);
+    };
+  }, [open]);
+
+  function cerrarSesion() {
+    clearAccount();
+    router.replace("/login");
+  }
+
+  return (
+    <div className="relative" ref={box}>
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="ml-1 hidden size-9 place-items-center rounded-full bg-gradient-to-br from-primary to-red-700 text-xs font-bold text-white shadow-sm transition-transform hover:scale-105 sm:grid"
+        aria-label="Tu cuenta"
+      >
+        {initialsFor(account?.nombre ?? "")}
+      </button>
+      {open ? (
+        <div className="absolute right-0 top-11 z-50 w-56 rounded-xl border border-border/70 bg-card p-3 shadow-lg">
+          <p className="truncate text-sm font-semibold">{account?.nombre || "Tu cuenta"}</p>
+          <p className="truncate text-xs text-muted-foreground">{account?.correo || "—"}</p>
+          {account?.banco ? (
+            <p className="mt-1.5 text-[11px] text-muted-foreground">
+              Vinculado a {account.banco} · {account.clabeEnmascarada}
+            </p>
+          ) : null}
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={cerrarSesion}
+            className="mt-2 w-full justify-start text-destructive hover:text-destructive"
+          >
+            <LogOut className="size-4" /> Cerrar sesión
+          </Button>
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -207,7 +289,6 @@ function preguntaPara(component: string, props: Record<string, unknown>) {
     return `Tengo ${p.count} facturas por cobrar por $${p.total}, ¿cómo las cobro?`;
   return `¿Qué hago con esto: ${String(props.title ?? component)}?`;
 }
-
 
 function WeeklyView({
   loading,

@@ -413,3 +413,23 @@ def test_time_series_un_punto_rechazada():
              {"label": "JUL", "income": 1, "expenses": 2}],
              "series": "both"}, "rationale": "x"}
     assert any("al menos 2" in e for e in G.validate_choice(c, ["time_series"]))
+
+
+def test_formatea_decimales_largos_con_comas():
+    import app.agents.designer as G
+    assert G._formatear_numero("2715.4733333333333333333334") == "2,715.47"
+    assert G._formatear_numero("98.5") == "98.50"
+    c = {"insight_id": "a1", "component": "hero_number",
+         "props": {"label": "Utilidad estimada para agosto (MXN)",
+                   "sublabel": "Proyección", "value": "2715.4733333333333333333334"},
+         "rationale": "x"}
+    G._normalizar(c)
+    assert c["props"]["value"] == "2,715.47"
+    # años, UUIDs e ids intactos
+    c2 = {"insight_id": "ab963863", "component": "insight_text",
+          "props": {"title": "Cierre 2026",
+                    "body": "En 2026 hubo 3 pagos. Ver ab963863."},
+          "rationale": "x"}
+    G._normalizar(c2)
+    assert c2["props"]["title"] == "Cierre 2026"
+    assert "ab963863" in c2["props"]["body"]

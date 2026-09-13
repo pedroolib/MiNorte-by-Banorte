@@ -393,7 +393,10 @@ def _a_num(v):
 def _normalizar(choice: dict) -> None:
     """Convierte strings numéricos a número in-place (el modelo manda
     '45%' o '$1,200'; el registry ya coacciona, pero el schema pide número).
-    Lo no convertible se deja y la validación lo rechaza con motivo."""
+    Lo no convertible se deja y la validación lo rechaza con motivo.
+    Además formatea decimales largos en textos ('2715.47333...' ->
+    '2,715.47'): el modelo pega valores crudos del motor y el dueño
+    no debe ver 30 decimales."""
 
     def _rec(valor, spec):
         if spec == _NUM:
@@ -420,6 +423,37 @@ def _normalizar(choice: dict) -> None:
         for campo, sub in spec.items():
             if campo in props:
                 props[campo] = _rec(props[campo], sub)
+    if isinstance(props, dict):
+        _rec_texto(props)
+
+
+_DEC_LARGO = re.compile(r"\d+\.\d{3,}")
+
+
+def _formatear_numero(v: str) -> str:
+    from decimal import Decimal, ROUND_HALF_UP
+    q = Decimal(v).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+    return f"{q:,}"
+
+
+def _rec_texto(valor) -> None:
+    """Formatea decimales largos in-place en todo string de props
+    (títulos, bodies, footnotes, values string, labels). Años, UUIDs,
+    fechas e ids no tienen 3+ decimales: no se tocan."""
+    if isinstance(valor, dict):
+        for k, v in valor.items():
+            if isinstance(v, str):
+                valor[k] = _DEC_LARGO.sub(
+                    lambda m: _formatear_numero(m.group(0)), v)
+            else:
+                _rec_texto(v)
+    elif isinstance(valor, list):
+        for i, el in enumerate(valor):
+            if isinstance(el, str):
+                valor[i] = _DEC_LARGO.sub(
+                    lambda m: _formatear_numero(m.group(0)), el)
+            else:
+                _rec_texto(el)
 
 
 def _partir(cards: list[dict], components: list[str],
