@@ -6,16 +6,14 @@ import Link from "next/link";
 import {
   ArrowLeft,
   BookmarkPlus,
-  HandCoins,
-  LayoutDashboard,
   MessageCircle,
-  MessageSquareText,
-  Settings,
   Sparkles,
 } from "lucide-react";
 
 import { AskBar } from "@/components/ask-bar";
+import { CollectionsPanel } from "@/components/collections-panel";
 import { CriticalBar } from "@/components/critical-bar";
+import { InlineAdvice } from "@/components/inline-advice";
 import { Markdown } from "@/components/markdown";
 import { DynamicUI } from "@/components/registry";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -28,6 +26,7 @@ import {
   EmptyTitle,
 } from "@/components/ui/empty";
 import { Skeleton } from "@/components/ui/skeleton";
+import { SettingsPanel } from "@/components/settings-panel";
 import { ThemeToggle } from "@/components/theme-toggle";
 import {
   fetchDrill,
@@ -37,6 +36,7 @@ import {
   sendChat,
 } from "@/lib/api";
 import type { GenCard } from "@/lib/types";
+import { cn } from "@/lib/utils";
 
 type Mode =
   | { name: "weekly" }
@@ -83,7 +83,24 @@ export default function Workspace() {
         typeof window === "undefined"
           ? null
           : window.localStorage.getItem(LS_KEY);
-      const r = await sendChat(t, cid);
+      let r;
+      try {
+        r = await sendChat(t, cid);
+      } catch (e) {
+        // El id guardado puede apuntar a una conversación que ya no existe
+        // (base recargada, otro COMPANY_ID). No es un error del usuario:
+        // lo tiramos y arrancamos conversación nueva en el mismo clic.
+        if (
+          cid &&
+          e instanceof Error &&
+          e.message.includes("/api/chat: 404")
+        ) {
+          window.localStorage.removeItem(LS_KEY);
+          r = await sendChat(t, null);
+        } else {
+          throw e;
+        }
+      }
       if (typeof window !== "undefined") {
         window.localStorage.setItem(LS_KEY, r.conversation_id);
       }
@@ -102,15 +119,6 @@ export default function Workspace() {
     }
   }
 
-  function preguntaPara(component: string, props: Record<string, unknown>) {
-    const p = props as Record<string, string | number>;
-    if (component === "receipts_resolution")
-      return `Tengo ${p.count} gastos sin factura por $${p.total}, ¿cómo los resuelvo?`;
-    if (component === "receivables_resolution")
-      return `Tengo ${p.count} facturas por cobrar por $${p.total}, ¿cómo las cobro?`;
-    return `¿Qué hago con esto: ${String(props.title ?? component)}?`;
-  }
-
   return (
     <div className="min-h-screen">
       <header className="sticky top-0 z-40 border-b border-border/70 bg-background/85 backdrop-blur-xl">
@@ -125,14 +133,8 @@ export default function Workspace() {
             </div>
           </Link>
 
-          <nav className="hidden items-center gap-1 md:flex" aria-label="Navegación principal">
-            <NavItem href="/" label="Resumen" icon={LayoutDashboard} active />
-            <NavItem href="/cobranza" label="Cobranza" icon={HandCoins} />
-            <NavItem href="/chat" label="Consultor" icon={MessageSquareText} />
-            <NavItem href="/ajustes" label="Ajustes" icon={Settings} />
-          </nav>
-
           <div className="ml-auto flex items-center gap-2">
+            <SettingsPanel />
             <ThemeToggle />
             <div className="ml-1 hidden size-9 place-items-center rounded-full bg-gradient-to-br from-primary to-red-700 text-xs font-bold text-white shadow-sm sm:grid">
               AN
@@ -195,7 +197,6 @@ export default function Workspace() {
           error={dashboard.isError}
           retry={() => dashboard.refetch()}
           data={dashboard.data ?? null}
-          onAction={(c, p) => preguntar(preguntaPara(c, p))}
           onDeepDive={(id, title) =>
             setMode({ name: "deep_dive", insightId: id, title })
           }
@@ -207,47 +208,42 @@ export default function Workspace() {
   );
 }
 
+function preguntaPara(component: string, props: Record<string, unknown>) {
+  const p = props as Record<string, string | number>;
+  if (component === "receipts_resolution")
+    return `Tengo ${p.count} gastos sin factura por $${p.total}, ¿cómo los resuelvo?`;
+  if (component === "receivables_resolution")
+    return `Tengo ${p.count} facturas por cobrar por $${p.total}, ¿cómo las cobro?`;
+  return `¿Qué hago con esto: ${String(props.title ?? component)}?`;
+}
+
+/**
+ * Isotipo oficial Banorte (mismo trazo que `app/icon.svg`, el favicon del tab).
+ * Rojo institucional #EC1C2D, sin recolorear: es marca registrada.
+ */
 function BanorteMark() {
   return (
-    <span className="relative block size-9 rounded-xl bg-primary shadow-[0_8px_18px_-8px_rgba(235,0,41,0.85)]">
-      <span className="absolute left-[9px] top-[9px] h-2 w-4 -rotate-12 rounded-full bg-white" />
-      <span className="absolute bottom-[9px] right-[9px] h-2 w-4 -rotate-12 rounded-full bg-white/75" />
-    </span>
+    <svg
+      viewBox="0 0 382 235.2"
+      role="img"
+      aria-label="Banorte"
+      className="block h-9 w-auto shrink-0"
+    >
+      <g fill="#EC1C2D" transform="matrix(3.2,0,0,3.2,-65.6,-911.04)">
+        <path d="m 84.5,284.7 c -28.5,0 -51.6,7.5 -51.6,16.8 0,7.8 16.1,14.3 38,16.2 l 9,-27.7 1.6,28.2 c 1,0 2,0 3.1,0 28.5,0 51.6,-7.5 51.6,-16.8 -0.1,-9.1 -23.2,-16.7 -51.7,-16.7" />
+        <path d="m 70.6,318.7 c -27.8,0.3 -50.1,9.1 -50.1,20 0,9.2 15.8,16.9 37.4,19.3 z" />
+        <path d="m 81.4,319 2.2,39.2 c 22.9,-2 39.9,-10 39.9,-19.5 0.1,-9.8 -18.1,-18 -42.1,-19.7" />
+      </g>
+    </svg>
   );
 }
 
-function NavItem({
-  href,
-  label,
-  icon: Icon,
-  active = false,
-}: {
-  href: string;
-  label: string;
-  icon: typeof LayoutDashboard;
-  active?: boolean;
-}) {
-  return (
-    <Button
-      asChild
-      variant={active ? "secondary" : "ghost"}
-      size="sm"
-      className={active ? "rounded-full text-primary" : "rounded-full text-muted-foreground"}
-    >
-      <Link href={href} aria-current={active ? "page" : undefined}>
-        <Icon className="size-3.5" />
-        {label}
-      </Link>
-    </Button>
-  );
-}
 
 function WeeklyView({
   loading,
   error,
   retry,
   data,
-  onAction,
   onDeepDive,
   scenarios,
 }: {
@@ -255,10 +251,12 @@ function WeeklyView({
   error: boolean;
   retry: () => void;
   data: import("@/lib/types").GenDashboard | null;
-  onAction: (component: string, props: Record<string, unknown>) => void;
   onDeepDive: (insightId: string, title: string) => void;
   scenarios: import("@/lib/types").SavedScenario[];
 }) {
+  // Antes de cualquier return: los hooks no pueden ir tras un early return.
+  const [resolviendo, setResolviendo] = useState<string | null>(null);
+
   if (loading) {
     return (
       <div className="space-y-5" aria-label="Cargando dashboard">
@@ -300,12 +298,34 @@ function WeeklyView({
       .map((c) => c.insight_id)
       .filter((id) => id && !/^\d{4}-\d{2}_/.test(id) && id !== "consulta"),
   );
-  const wrap = (c: GenCard) => (
-    <div key={c.insight_id} className="space-y-2">
+  const wrap = (c: GenCard) => {
+    const abierto = resolviendo === c.insight_id;
+    return (
+    <div
+      key={c.insight_id}
+      className={cn(
+        "flex flex-col gap-2",
+        // Con todo cerrado las tarjetas se emparejan. Con un panel abierto
+        // cada una toma su alto natural: la tarjeta no crece, el panel cae
+        // debajo y lo que sigue se recorre.
+        !resolviendo && "h-full [&>*:first-child]:grow",
+      )}
+    >
       <DynamicUI
         schema={{ component: c.component, props: c.props } as never}
-        onAction={onAction}
+        onAction={() => setResolviendo(abierto ? null : c.insight_id)}
       />
+      {abierto ? (
+        c.component === "receivables_resolution" ? (
+          // cobranza tiene backend propio: se opera, no se consulta
+          <CollectionsPanel onClose={() => setResolviendo(null)} />
+        ) : (
+          <InlineAdvice
+            question={preguntaPara(c.component, c.props)}
+            onClose={() => setResolviendo(null)}
+          />
+        )
+      ) : null}
       {drillables.has(c.insight_id) ? (
         <Button
           variant="ghost"
@@ -318,7 +338,8 @@ function WeeklyView({
         </Button>
       ) : null}
     </div>
-  );
+    );
+  };
   return (
     <div className="space-y-7">
       <header className="space-y-3">
@@ -360,7 +381,12 @@ function WeeklyView({
           <h2 className="text-sm font-bold tracking-tight">
             Requieren acción
           </h2>
-          <div className="minorte-card-grid grid gap-4 lg:grid-cols-2">
+          <div
+            className={cn(
+              "minorte-card-grid grid gap-4 lg:grid-cols-2",
+              resolviendo && "items-start",
+            )}
+          >
             {data.actions.map(wrap)}
           </div>
         </section>
@@ -371,7 +397,12 @@ function WeeklyView({
           <h2 className="text-sm font-bold tracking-tight">
             Descubrimientos
           </h2>
-          <div className="minorte-card-grid grid gap-4 lg:grid-cols-2">
+          <div
+            className={cn(
+              "minorte-card-grid grid gap-4 lg:grid-cols-2",
+              resolviendo && "items-start",
+            )}
+          >
             {data.discovery.map(wrap)}
           </div>
         </section>
