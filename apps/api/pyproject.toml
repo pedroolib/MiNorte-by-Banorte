@@ -14,11 +14,15 @@ dependencies = [
   "openai>=1.0",
   "mcp>=1.0",
   "openpyxl>=3.1",
+  "playwright>=1.45",
+  "opencv-python-headless>=4.9",
+  "google-genai>=1.0",
 ]
 
 [project.optional-dependencies]
 dev = [
   "pytest>=8",
+  "qrcode[pil]>=7.4",
 ]
 
 [tool.pytest.ini_options]

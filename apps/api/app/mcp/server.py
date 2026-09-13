@@ -116,3 +116,23 @@ if mcp is not None:  # pragma: no cover - transporte, no lógica
     def prepare_payment_reminder(receivable_id: str) -> dict:
         """Borrador SIN enviar."""
         return T.prepare_payment_reminder(receivable_id)
+
+    @mcp.tool()
+    def extract_receipt(image_base64: str, mime: str = "image/jpeg") -> dict:
+        """Ticket real (foto base64) -> extracción Vision."""
+        return T.extract_receipt(image_base64, mime)
+
+    @mcp.tool()
+    def match_receipt_to_transaction(extraction: dict) -> list:
+        """Candidatos de conciliación ticket<->movimiento."""
+        return T.match_receipt_to_transaction(extraction)
+
+    @mcp.tool()
+    def get_fiscal_profile() -> dict:
+        """Perfil fiscal del receptor."""
+        return T.get_fiscal_profile()
+
+    @mcp.tool()
+    def prepare_invoice_request(extraction: dict, uso_cfdi: str = "G03") -> dict:
+        """Payload real para el Browser Agent (envío vía API con confirmación)."""
+        return T.prepare_invoice_request(extraction, uso_cfdi)
