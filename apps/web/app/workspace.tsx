@@ -1,16 +1,19 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   ArrowLeft,
   BookmarkPlus,
+  LogOut,
   MessageCircle,
   Sparkles,
 } from "lucide-react";
 
 import { AskBar } from "@/components/ask-bar";
+import { BanorteMark } from "@/components/banorte-mark";
 import { CollectionsPanel } from "@/components/collections-panel";
 import { CriticalBar } from "@/components/critical-bar";
 import { InlineAdvice } from "@/components/inline-advice";
@@ -36,6 +39,7 @@ import {
   saveScenario,
   sendChat,
 } from "@/lib/api";
+import { clearAccount, getAccount, initialsFor, type DummyAccount } from "@/lib/auth";
 import type { GenCard } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -137,9 +141,7 @@ export default function Workspace() {
           <div className="ml-auto flex items-center gap-2">
             <SettingsPanel />
             <ThemeToggle />
-            <div className="ml-1 hidden size-9 place-items-center rounded-full bg-gradient-to-br from-primary to-red-700 text-xs font-bold text-white shadow-sm sm:grid">
-              AN
-            </div>
+            <CuentaAvatar />
           </div>
         </div>
       </header>
@@ -209,6 +211,70 @@ export default function Workspace() {
   );
 }
 
+/** Avatar del header: iniciales reales de la cuenta demo vinculada +
+ * "cerrar sesión" (mismo patrón anclado que SettingsPanel). */
+function CuentaAvatar() {
+  const router = useRouter();
+  const [open, setOpen] = useState(false);
+  const [account, setAccount] = useState<DummyAccount | null>(null);
+  const box = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    setAccount(getAccount());
+  }, []);
+
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
+    const onClick = (e: MouseEvent) => {
+      if (box.current && !box.current.contains(e.target as Node)) setOpen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    document.addEventListener("mousedown", onClick);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      document.removeEventListener("mousedown", onClick);
+    };
+  }, [open]);
+
+  function cerrarSesion() {
+    clearAccount();
+    router.replace("/login");
+  }
+
+  return (
+    <div className="relative" ref={box}>
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="ml-1 hidden size-9 place-items-center rounded-full bg-gradient-to-br from-primary to-red-700 text-xs font-bold text-white shadow-sm transition-transform hover:scale-105 sm:grid"
+        aria-label="Tu cuenta"
+      >
+        {initialsFor(account?.nombre ?? "")}
+      </button>
+      {open ? (
+        <div className="absolute right-0 top-11 z-50 w-56 rounded-xl border border-border/70 bg-card p-3 shadow-lg">
+          <p className="truncate text-sm font-semibold">{account?.nombre || "Tu cuenta"}</p>
+          <p className="truncate text-xs text-muted-foreground">{account?.correo || "—"}</p>
+          {account?.banco ? (
+            <p className="mt-1.5 text-[11px] text-muted-foreground">
+              Vinculado a {account.banco} · {account.clabeEnmascarada}
+            </p>
+          ) : null}
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={cerrarSesion}
+            className="mt-2 w-full justify-start text-destructive hover:text-destructive"
+          >
+            <LogOut className="size-4" /> Cerrar sesión
+          </Button>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 function preguntaPara(component: string, props: Record<string, unknown>) {
   const p = props as Record<string, string | number>;
   if (component === "receipts_resolution")
@@ -217,28 +283,6 @@ function preguntaPara(component: string, props: Record<string, unknown>) {
     return `Tengo ${p.count} facturas por cobrar por $${p.total}, ¿cómo las cobro?`;
   return `¿Qué hago con esto: ${String(props.title ?? component)}?`;
 }
-
-/**
- * Isotipo oficial Banorte (mismo trazo que `app/icon.svg`, el favicon del tab).
- * Rojo institucional #EC1C2D, sin recolorear: es marca registrada.
- */
-function BanorteMark() {
-  return (
-    <svg
-      viewBox="0 0 382 235.2"
-      role="img"
-      aria-label="Banorte"
-      className="block h-9 w-auto shrink-0"
-    >
-      <g fill="#EC1C2D" transform="matrix(3.2,0,0,3.2,-65.6,-911.04)">
-        <path d="m 84.5,284.7 c -28.5,0 -51.6,7.5 -51.6,16.8 0,7.8 16.1,14.3 38,16.2 l 9,-27.7 1.6,28.2 c 1,0 2,0 3.1,0 28.5,0 51.6,-7.5 51.6,-16.8 -0.1,-9.1 -23.2,-16.7 -51.7,-16.7" />
-        <path d="m 70.6,318.7 c -27.8,0.3 -50.1,9.1 -50.1,20 0,9.2 15.8,16.9 37.4,19.3 z" />
-        <path d="m 81.4,319 2.2,39.2 c 22.9,-2 39.9,-10 39.9,-19.5 0.1,-9.8 -18.1,-18 -42.1,-19.7" />
-      </g>
-    </svg>
-  );
-}
-
 
 function WeeklyView({
   loading,
