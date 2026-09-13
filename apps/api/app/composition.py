@@ -128,9 +128,23 @@ def score(item: dict, exposures: list[dict],
 
 
 def discover(pool: list[dict], exposures: list[dict], n: int,
-             hoy: datetime | None = None) -> list[dict]:
-    """Top-n por score con diversidad (máx 2 por familia salvo critical)."""
-    rank = sorted(((score(it, exposures, hoy)[0], it) for it in pool),
+             hoy: datetime | None = None, wid: str | None = None) -> list[dict]:
+    """Top-n por score con diversidad (máx 2 por familia salvo critical).
+
+    Rotación dura: los kinds de la semana ANTERIOR (por week_id, no por
+    fecha: regenerar varias semanas el mismo día no debe confundirla)
+    no repiten, salvo que el pool no alcance (se rellena por score).
+    """
+    if wid:
+        previas = sorted({e.get("week_id", "") for e in exposures
+                          if e.get("week_id", "") < wid})
+        ultima = {e.get("insight_kind") for e in exposures
+                  if e.get("week_id") == (previas[-1] if previas else None)}
+    else:
+        ultima = _semanas_atras(exposures, 1, hoy)
+    frescos = [it for it in pool if it.get("kind") not in ultima]
+    base = frescos if len(frescos) >= n else pool
+    rank = sorted(((score(it, exposures, hoy)[0], it) for it in base),
                   key=lambda t: -t[0])
     elegidos, por_familia = [], {}
     for _, it in rank:
@@ -142,6 +156,21 @@ def discover(pool: list[dict], exposures: list[dict], n: int,
         elegidos.append(it)
         if len(elegidos) == n:
             break
+    if len(elegidos) < n:
+        # Pool corto: rellena con lo mejor aunque repita (sin duplicar
+        # y respetando diversidad).
+        vistos = {id(it) for it in elegidos}
+        resto = sorted(((score(it, exposures, hoy)[0], it) for it in pool
+                        if id(it) not in vistos), key=lambda t: -t[0])
+        for _, it in resto:
+            if len(elegidos) == n:
+                break
+            fam = it.get("family", "operations")
+            if (por_familia.get(fam, 0) >= 2
+                    and it.get("severity") != "critical"):
+                continue
+            por_familia[fam] = por_familia.get(fam, 0) + 1
+            elegidos.append(it)
     return elegidos
 
 
@@ -204,7 +233,7 @@ def compose(month: str, pool: list[dict], anchor_comments: dict,
     # Lo accionable que no cupo compite en discovery (nada se pierde).
     resto = [it for it in pool if it not in elegidas_acc]
     elegidas_dis = discover(resto, exposures,
-                            min(n_discovery, len(resto)), hoy)
+                            min(n_discovery, len(resto)), hoy, wid)
 
     componentes = [c for c in D.PROPS_SCHEMAS if c not in D.RESERVED]
     disenadas = []

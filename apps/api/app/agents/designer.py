@@ -25,6 +25,11 @@ RESERVED = ("tax_summary", "receipts_resolution", "receivables_resolution")
 #: no es gratis (si el lote trae más, el excedente va al reintento).
 MAX_TEXT = 2
 
+#: Componentes con gráfica. Todo diseño debe incluir al menos uno:
+#: puro número y texto no basta.
+CHART_TYPES = ("bars_total", "donut_total", "waterfall", "multi_ring",
+               "progress_list", "metric_trend", "time_series")
+
 #: Footnote para dueños no financieros: corto y sin tecnicismos.
 MAX_FOOTNOTE = 140
 JERGA = re.compile(
@@ -85,6 +90,16 @@ Reglas duras:
   CxC -> wallet, riesgo de caja -> flame, impuestos -> landmark).
 - Máximo 2 tarjetas insight_text por diseño: si necesitas más texto,
   es señal de que algún insight pide un componente visual.
+- OBLIGATORIO: todo diseño incluye al menos una tarjeta CON GRÁFICA
+  (bars_total, donut_total, waterfall, multi_ring, progress_list,
+  metric_trend o time_series). Puro número y texto no basta: si un
+  insight trae cifras, visualízalas con footnote en vez de narrarlas.
+- Las gráficas de serie (bars_total, time_series) necesitan AL MENOS
+  2 puntos: una barra sola no dice nada. Para comparar contra meses
+  pasados, pide la misma métrica por mes con get_metric (acepta month:
+  get_metric("ventas", month="2026-06")). Si solo hay un mes con datos,
+  NO uses serie de un punto: elige otra gráfica (donut, hero, ranking)
+  o insight_text.
 - PROHIBIDO elegir tax_summary, receipts_resolution o receivables_resolution:
   esas tarjetas se generan automáticamente por vía determinista. Si un
   insight pide una de ellas, usa insight_text en su lugar.
@@ -118,6 +133,31 @@ def _cards_schema(components: list[str], n: int | None = None,
     return {"type": "object",
             "properties": {"cards": arr},
             "required": ["cards"], "additionalProperties": False}
+
+
+def _exigir_grafica(validas: list[dict], fallidas: list[dict],
+                    components: list[str]) -> None:
+    """Mueve a reintento hasta garantizar ≥1 tarjeta con gráfica.
+
+    Sin gráficas permitidas en el catálogo no se exige nada. Sin válidas
+    no hay nada que convertir (el reintento normal ya corre).
+    """
+    if not validas:
+        return
+    if not any(c in CHART_TYPES for c in components):
+        return
+    if any(c.get("component") in CHART_TYPES for c in validas):
+        return
+    motivo = ("el diseño requiere al menos una tarjeta CON GRÁFICA "
+              "(bars_total, donut_total, waterfall, multi_ring, "
+              "progress_list, metric_trend o time_series): convierte una "
+              "de estas tarjetas a visual con footnote")
+    textos = [c for c in validas if c.get("component") == "insight_text"]
+    candidatas = textos if textos else validas[-1:]
+    for c in candidatas:
+        validas.remove(c)
+        fallidas.append({"insight_id": c["insight_id"],
+                         "component": c["component"], "motivos": [motivo]})
 
 
 # Espejo de apps/web/lib/ui-schema.ts (17 componentes congelados).
@@ -275,6 +315,22 @@ def validate_choice(choice: dict, components: list[str]) -> list[str]:
         elif JERGA.search(footnote):
             errores.append("footnote con tecnicismos: explícalo como a un "
                            "dueño que no sabe de finanzas")
+    if comp == "bars_total":
+        vs, ls = props.get("values", []), props.get("labels", [])
+        if isinstance(vs, list) and isinstance(ls, list):
+            if len(vs) < 2 or len(ls) < 2:
+                errores.append(f"{comp} necesita al menos 2 barras "
+                               "(una sola no dice nada: trae meses pasados "
+                               "con get_metric o usa otra gráfica)")
+            elif len(vs) != len(ls):
+                errores.append(f"{comp} values/labels desalineados "
+                               f"({len(vs)} vs {len(ls)})")
+    if comp == "time_series":
+        pts = props.get("points", [])
+        if isinstance(pts, list) and len(pts) < 2:
+            errores.append(f"{comp} necesita al menos 2 puntos "
+                           "(uno solo no es serie: trae meses pasados "
+                           "con get_metric o usa otra gráfica)")
     if not choice.get("insight_id"):
         errores.append("falta insight_id (trazabilidad)")
     errores.extend(_checa_consistencia(comp, props))
@@ -452,6 +508,7 @@ def design(insights: list[dict], components: list[str],
         elige_modelo, strict=False)
     validas, fallidas = _partir(out.get("cards", []), components,
                                 extra_check, max_text)
+    _exigir_grafica(validas, fallidas, components)
     if exact:
         # 1:1 insight -> tarjeta: lo no cubierto va al reintento como
         # faltante (salvo que ya esté fallido por otro motivo).
@@ -501,6 +558,15 @@ def design(insights: list[dict], components: list[str],
             return {"cards": validas,
                     "tools_usados": [a["tool"] for a in audit]}
         raise llm.LLMError(f"elección inválida tras reintento: {fallidas}")
+    if validas and any(c in CHART_TYPES for c in components) and not any(
+            c.get("component") in CHART_TYPES for c in validas):
+        if partial:
+            import sys as _sys
+            print("[warn] design parcial sin gráfica",
+                  file=_sys.stderr)
+            return {"cards": validas,
+                    "tools_usados": [a["tool"] for a in audit]}
+        raise llm.LLMError("diseño sin tarjeta con gráfica tras reintento")
     return {"cards": validas,
             "tools_usados": [a["tool"] for a in audit]}
 
