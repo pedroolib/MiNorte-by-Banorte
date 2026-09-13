@@ -774,9 +774,9 @@ def api_drill(insight_id: str, month: str | None = None):
             tarjetas.append({
                 "insight_id": f"{insight_id}_drill", "component": "bars_total",
                 "props": {"title": "Top comercios relacionados",
-                          "total": str(sum(float(str(m.get('total', 0)))
-                                           for m in top)),
-                          "values": [float(str(m.get("total", 0)))
+                          "total": str(round(sum(
+                              float(str(m.get('total', 0))) for m in top), 2)),
+                          "values": [round(float(str(m.get("total", 0))), 2)
                                      for m in top],
                           "labels": [str(m.get("nombre", "?"))[:12]
                                      for m in top],

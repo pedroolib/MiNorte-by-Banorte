@@ -126,7 +126,7 @@ export function CollectionsPanel({ onClose }: { onClose: () => void }) {
   const cargando = drafts.isLoading || receivables.isLoading;
 
   return (
-    <div className="rounded-2xl border border-primary/20 bg-card p-4 shadow-sm sm:p-5">
+    <div className="rounded-2xl border border-primary/20 bg-card/55 p-4 shadow-xl backdrop-blur-lg sm:p-5">
       <div className="mb-3 flex items-start justify-between gap-3">
         <div>
           <h3 className="text-sm font-bold tracking-tight">Cobrar estas facturas</h3>

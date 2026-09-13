@@ -1,13 +1,16 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import {
   ArrowLeft,
   BookmarkPlus,
+  Loader2,
   MessageCircle,
   Sparkles,
+  TriangleAlert,
+  X,
 } from "lucide-react";
 
 import { AskBar } from "@/components/ask-bar";
@@ -41,14 +44,14 @@ import { cn } from "@/lib/utils";
 
 type Mode =
   | { name: "weekly" }
-  | { name: "consultant"; question: string }
-  | { name: "deep_dive"; insightId: string; title: string };
+  | { name: "consultant"; question: string };
 
 const LS_KEY = "minorte_conversation_id";
 
 /**
- * Workspace MiNorte: weekly_dashboard (Analista) + consultant_view temporal
- * + deep_dive por tarjeta. La barra de críticos vive sobre cualquier modo.
+ * Workspace MiNorte: weekly_dashboard (Analista) + consultant_view temporal.
+ * "Entender por qué" y "Cómo resolverlo" se explican inline en su tarjeta.
+ * La barra de críticos vive sobre cualquier modo.
  */
 export default function Workspace() {
   const [mode, setMode] = useState<Mode>({ name: "weekly" });
@@ -126,7 +129,9 @@ export default function Workspace() {
         <div className="mx-auto flex h-16 max-w-7xl items-center gap-6 px-4 sm:px-6 lg:px-8">
           <Link href="/" className="flex shrink-0 items-center" aria-label="MiNorte inicio">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/minorte-logo.png" alt="MiNorte" className="h-7 w-auto" />
+            <img src="/minorte-logo.png" alt="MiNorte" className="h-7 w-auto dark:hidden" />
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/minorte-logo-dark.png" alt="MiNorte" className="hidden h-7 w-auto dark:block" />
           </Link>
 
           <div className="ml-auto flex items-center gap-2">
@@ -179,23 +184,13 @@ export default function Workspace() {
         />
         ) : null}
 
-        {mode.name === "deep_dive" ? (
-        <DeepDive
-          insightId={mode.insightId}
-          title={mode.title}
-          onAsk={preguntar}
-        />
-        ) : null}
-
         {mode.name === "weekly" ? (
         <WeeklyView
           loading={dashboard.isLoading}
           error={dashboard.isError}
           retry={() => dashboard.refetch()}
           data={dashboard.data ?? null}
-          onDeepDive={(id, title) =>
-            setMode({ name: "deep_dive", insightId: id, title })
-          }
+          onAsk={preguntar}
           scenarios={scenarios.data?.items ?? []}
         />
         ) : null}
@@ -219,18 +214,19 @@ function WeeklyView({
   error,
   retry,
   data,
-  onDeepDive,
+  onAsk,
   scenarios,
 }: {
   loading: boolean;
   error: boolean;
   retry: () => void;
   data: import("@/lib/types").GenDashboard | null;
-  onDeepDive: (insightId: string, title: string) => void;
+  onAsk: (question: string) => void;
   scenarios: import("@/lib/types").SavedScenario[];
 }) {
   // Antes de cualquier return: los hooks no pueden ir tras un early return.
   const [resolviendo, setResolviendo] = useState<string | null>(null);
+  const [entendiendo, setEntendiendo] = useState<string | null>(null);
 
   if (loading) {
     return (
@@ -275,6 +271,8 @@ function WeeklyView({
   );
   const wrap = (c: GenCard) => {
     const abierto = resolviendo === c.insight_id;
+    const explicando = entendiendo === c.insight_id;
+    const titulo = String((c.props as { title?: string }).title ?? c.component);
     // Los "Resolver" son barras delgadas: estirarlas deja un cajón vacío.
     const esBanner =
       c.component === "receipts_resolution" ||
@@ -283,14 +281,14 @@ function WeeklyView({
     <div
       key={c.insight_id}
       className={cn(
-        "flex flex-col gap-2",
+        "relative flex flex-col gap-2",
         // Los "Resolver" son barras de aviso: fila completa y alto natural.
         esBanner && "self-start lg:col-span-2",
         // Las de contenido se emparejan por fila y centran su contenido en
-        // el alto sobrante, para que no quede un hueco al fondo. Con un
-        // panel abierto nadie se estira: el panel cae debajo de su tarjeta.
-        !resolviendo &&
-          !esBanner &&
+        // el alto sobrante, para que no quede un hueco al fondo. El panel
+        // ("Cómo resolverlo" / "Entender por qué") flota encima de lo que
+        // haya debajo en vez de empujarlo, así nadie más se reacomoda.
+        !esBanner &&
           "h-full [&>*:first-child]:grow [&>*:first-child]:flex [&>*:first-child]:flex-col [&>*:first-child]:justify-center",
       )}
     >
@@ -298,31 +296,45 @@ function WeeklyView({
         schema={{ component: c.component, props: c.props } as never}
         onAction={() => setResolviendo(abierto ? null : c.insight_id)}
       />
-      {abierto ? (
-        c.component === "receivables_resolution" ? (
-          // cobranza tiene backend propio: se opera, no se consulta
-          <CollectionsPanel onClose={() => setResolviendo(null)} />
-        ) : c.component === "receipts_resolution" ? (
-          // tickets también tiene backend propio (Vision + Browser Agent)
-          <TicketResolutionPanel onClose={() => setResolviendo(null)} />
-        ) : (
-          <InlineAdvice
-            question={preguntaPara(c.component, c.props)}
-            onClose={() => setResolviendo(null)}
-          />
-        )
-      ) : null}
       {drillables.has(c.insight_id) ? (
         <Button
           variant="ghost"
           size="sm"
           className="-mt-1 h-7 self-start px-2 text-xs text-muted-foreground"
-          onClick={() =>
-            onDeepDive(c.insight_id, String((c.props as { title?: string }).title ?? c.component))
-          }
+          onClick={() => setEntendiendo(explicando ? null : c.insight_id)}
         >
           Entender por qué
         </Button>
+      ) : null}
+      {abierto || explicando ? (
+        <div className="absolute inset-x-0 top-full z-30 space-y-2 pt-2">
+          {abierto ? (
+            <AutoHidePanel onClose={() => setResolviendo(null)}>
+              {c.component === "receivables_resolution" ? (
+                // cobranza tiene backend propio: se opera, no se consulta
+                <CollectionsPanel onClose={() => setResolviendo(null)} />
+              ) : c.component === "receipts_resolution" ? (
+                // tickets también tiene backend propio (Vision + Browser Agent)
+                <TicketResolutionPanel onClose={() => setResolviendo(null)} />
+              ) : (
+                <InlineAdvice
+                  question={preguntaPara(c.component, c.props)}
+                  onClose={() => setResolviendo(null)}
+                />
+              )}
+            </AutoHidePanel>
+          ) : null}
+          {explicando ? (
+            <AutoHidePanel onClose={() => setEntendiendo(null)}>
+              <DrillInline
+                insightId={c.insight_id}
+                title={titulo}
+                onAsk={onAsk}
+                onClose={() => setEntendiendo(null)}
+              />
+            </AutoHidePanel>
+          ) : null}
+        </div>
       ) : null}
     </div>
     );
@@ -365,12 +377,7 @@ function WeeklyView({
           <h2 className="text-sm font-bold tracking-tight">
             Requieren acción
           </h2>
-          <div
-            className={cn(
-              "minorte-card-grid grid gap-4 lg:grid-cols-2",
-              resolviendo && "items-start",
-            )}
-          >
+          <div className="minorte-card-grid grid gap-4 lg:grid-cols-2">
             {data.actions.map(wrap)}
           </div>
         </section>
@@ -381,12 +388,7 @@ function WeeklyView({
           <h2 className="text-sm font-bold tracking-tight">
             Descubrimientos
           </h2>
-          <div
-            className={cn(
-              "minorte-card-grid grid gap-4 lg:grid-cols-2",
-              resolviendo && "items-start",
-            )}
-          >
+          <div className="minorte-card-grid grid gap-4 lg:grid-cols-2">
             {data.discovery.map(wrap)}
           </div>
         </section>
@@ -467,14 +469,58 @@ function ConsultantView({
   );
 }
 
-function DeepDive({
+const AUTO_HIDE_MS = 5000;
+
+/**
+ * Los paneles flotantes se cierran solos si nadie interactúa con ellos:
+ * el mouse encima pausa la cuenta regresiva, al salir se reinicia.
+ */
+function AutoHidePanel({
+  onClose,
+  children,
+}: {
+  onClose: () => void;
+  children: ReactNode;
+}) {
+  const timer = useRef<number | null>(null);
+
+  const schedule = () => {
+    if (timer.current !== null) window.clearTimeout(timer.current);
+    timer.current = window.setTimeout(onClose, AUTO_HIDE_MS);
+  };
+  const cancel = () => {
+    if (timer.current !== null) window.clearTimeout(timer.current);
+  };
+
+  useEffect(() => {
+    schedule();
+    return cancel;
+    // Solo al montar: cada apertura es una instancia nueva del panel.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  return (
+    <div onMouseEnter={cancel} onMouseLeave={schedule}>
+      {children}
+    </div>
+  );
+}
+
+/**
+ * "Entender por qué" DENTRO de la tarjeta que lo pidió, igual que
+ * InlineAdvice para "Cómo resolverlo": nada de navegar a otra vista,
+ * el dashboard completo sigue detrás.
+ */
+function DrillInline({
   insightId,
   title,
   onAsk,
+  onClose,
 }: {
   insightId: string;
   title: string;
   onAsk: (q: string) => void;
+  onClose: () => void;
 }) {
   const drill = useQuery({
     queryKey: ["drill", insightId],
@@ -482,34 +528,44 @@ function DeepDive({
     retry: 1,
   });
   return (
-    <div className="space-y-4">
-      <div className="flex items-center gap-2">
-        <Badge variant="secondary">Investigación</Badge>
-        <h2 className="text-lg font-bold">{title}</h2>
+    <div className="rounded-2xl border border-primary/20 bg-card/55 p-4 shadow-xl backdrop-blur-lg sm:p-5">
+      <div className="mb-2 flex items-start justify-between gap-3">
+        <p className="flex items-center gap-1.5 text-sm font-bold tracking-tight">
+          <Sparkles className="size-4 text-primary" /> Por qué
+        </p>
+        <Button variant="ghost" size="icon" onClick={onClose} aria-label="Cerrar">
+          <X className="size-4" />
+        </Button>
       </div>
-      {drill.isLoading ? <Skeleton className="h-32 w-full" /> : null}
-      {drill.isError ? (
-        <Alert variant="destructive">
-          <AlertTitle>No se pudo investigar</AlertTitle>
-          <AlertDescription>Intenta de nuevo más tarde.</AlertDescription>
-        </Alert>
+
+      {drill.isLoading ? (
+        <p className="flex items-center gap-2 py-4 text-sm text-muted-foreground">
+          <Loader2 className="size-4 animate-spin" /> Investigando…
+        </p>
       ) : null}
+
+      {drill.isError ? (
+        <p role="alert" className="flex items-center gap-2 py-2 text-sm text-destructive">
+          <TriangleAlert className="size-4" /> No pudimos investigarlo ahorita.
+        </p>
+      ) : null}
+
       {drill.data ? (
         <>
-          <Alert>
-            <AlertDescription>
-              <Markdown text={drill.data.texto} />
-            </AlertDescription>
-          </Alert>
-          <div className="grid gap-4 md:grid-cols-2">
-            {drill.data.tarjetas.map((c, i) => (
-              <DynamicUI
-                key={c.insight_id + i}
-                schema={{ component: c.component, props: c.props } as never}
-              />
-            ))}
+          <div className="text-sm">
+            <Markdown text={drill.data.texto} />
           </div>
-          <div className="flex flex-wrap gap-2">
+          {drill.data.tarjetas.length > 0 ? (
+            <div className="mt-4 grid gap-4 md:grid-cols-2">
+              {drill.data.tarjetas.map((c, i) => (
+                <DynamicUI
+                  key={c.insight_id + i}
+                  schema={{ component: c.component, props: c.props } as never}
+                />
+              ))}
+            </div>
+          ) : null}
+          <div className="mt-4 flex flex-wrap gap-2">
             <Button
               variant="outline"
               size="sm"
