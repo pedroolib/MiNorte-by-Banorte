@@ -16,8 +16,10 @@ export function CriticalBar() {
   });
   if (!bar.data || bar.data.pendientes === 0) return null;
   return (
-    <div className="flex flex-wrap items-center gap-2 rounded-lg border bg-card px-3 py-2 text-xs">
-      <TriangleAlert className="size-3.5 text-destructive" />
+    <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-primary/15 bg-primary/[0.045] px-4 py-3 text-xs dark:bg-primary/[0.08]">
+      <span className="grid size-7 place-items-center rounded-full bg-primary/10">
+        <TriangleAlert className="size-3.5 text-primary" />
+      </span>
       <strong>Esta semana · {bar.data.pendientes} pendientes</strong>
       {bar.data.items.slice(0, 3).map((c) => (
         <Badge
