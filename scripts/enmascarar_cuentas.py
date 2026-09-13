@@ -6,7 +6,7 @@
   el CVE de INTERN.PAGO TDC (el cross-check TDC<->chequera corre sobre
   los CSVs CRUDOS, antes de este paso).
 - SOLO toca `descripcion`. Comercio, montos, fechas, categorías, RFCs:
-  intactos (el análisis no usa dígitos de descripcion: clasificar_bbva
+  intactos (el análisis no usa dígitos de descripcion: clasificar_banorte
   es por keywords; reconcile usa merchant_name; signals usa montos).
 - Idempotente: sobre texto ya enmascarado no cambia nada.
 

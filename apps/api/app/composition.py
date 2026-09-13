@@ -237,9 +237,41 @@ def compose(month: str, pool: list[dict], anchor_comments: dict,
 
     componentes = [c for c in D.PROPS_SCHEMAS if c not in D.RESERVED]
     disenadas = []
-    if elegidas_acc or elegidas_dis:
-        disenadas = design_fn(_para_disenar(elegidas_acc + elegidas_dis),
+    elegidas = elegidas_acc + elegidas_dis
+    if elegidas:
+        disenadas = design_fn(_para_disenar(elegidas),
                               componentes)["cards"]
+        # Garantía 1:1: lo no cubierto (faltantes o ids duplicados) va a
+        # un segundo intento solo con los ausentes.
+        cubiertos: dict[str, int] = {}
+        for c in disenadas:
+            cubiertos[c["insight_id"]] = cubiertos.get(c["insight_id"], 0) + 1
+        ausentes = [it for it in elegidas
+                    if sum(1 for c in disenadas
+                           if c["insight_id"] == (it.get("id") or it.get("kind"))) == 0]
+        if ausentes:
+            mas = design_fn(_para_disenar(ausentes),
+                            componentes)["cards"]
+            vistos = {c["insight_id"] for c in disenadas}
+            disenadas.extend(c for c in mas
+                             if c["insight_id"] not in vistos)
+        # Garantía final sin LLM: tarjeta de texto con los datos validados
+        # del propio insight (título/detalle/evidencia real, nada inventado).
+        cubiertos = {c["insight_id"] for c in disenadas}
+        for it in elegidas:
+            iid = it.get("id") or it.get("kind")
+            if iid not in cubiertos:
+                ev = [f"{e.get('señal')}: {e.get('valor', '')} "
+                      f"{e.get('unidad', '')}".strip()
+                      for e in (it.get("evidencia") or [])]
+                disenadas.append({
+                    "insight_id": iid, "component": "insight_text",
+                    "props": {"title": it.get("titulo", ""),
+                              "body": it.get("detalle", ""),
+                              "evidence": ev},
+                    "rationale": "respaldo determinista: el diseño no cubrió "
+                                 "este insight"})
+                cubiertos.add(iid)
 
     ids_acc = {i.get("id") or i.get("kind") for i in elegidas_acc}
     cards_acc = [c for c in disenadas if c["insight_id"] in ids_acc]

@@ -11,11 +11,30 @@ import re
 from app.agents import llm
 from app.mcp import tools as T
 
+#: Preguntas que exigen datos del negocio (no consejo genérico).
+_TEMAS_DATOS = re.compile(
+    r"utilidad|ventas|gastos?|margen|clientes?|cobran|impuestos?|isr|iva|"
+    r"flujo|efectivo|caja|proyec|pronóst|predic|cuánto|"
+    r"cómo (está|va|anda)\b|qué (cambio|hago|mejoro|pasa)\b|rentab|crec|"
+    r"caíd|aument|disminu|crédito|contrat|emplead|nómina|renta|balance",
+    re.IGNORECASE)
+
+
+def _pide_datos(texto: str) -> bool:
+    """True si la pregunta trata de los números del negocio."""
+    return bool(_TEMAS_DATOS.search(texto or ""))
+
 SYSTEM = """Eres el consultor financiero de una PyME mexicana, dentro de la app MiNorte by Banorte.
 Hablas español simple, sin jerga contable, como un asesor de confianza, no como un ERP.
 
 Reglas duras:
 - JAMÁS calcules ni inventes cifras: todo número sale de llamar tools primero.
+- Si la pregunta trata de LOS NÚMEROS DEL NEGOCIO (ventas, gastos,
+  utilidad, margen, clientes, cobranza, impuestos, flujo, proyecciones,
+  "cómo está/cómo va mi negocio", "qué cambio/mejoro"), PROHIBIDO
+  responder sin llamar al menos get_signals primero. Una respuesta de
+  consejo genérico sin datos es una respuesta inválida: investiga y
+  luego aconseja, nunca al revés.
 - Evaluación de gastos (empleado, mercancía, auto, terreno, construcción, renta,
   maquinaria): UNA sola ruta. 1) Detecta el tipo. 2) Llama get_variables_gasto
   con ese tipo. 3) Mapea lo que el usuario ya dijo. 4) Pregunta SOLO lo faltante,
@@ -50,8 +69,7 @@ Reglas duras:
   Profundiza cuando (a) pregunten un quién/cuál específico, (b) un hint_drill
   lo sugiera, o (c) el top agregado no explique el grueso del rubro.
   Prioriza completitud sobre velocidad: mejor 2 llamadas con el dato que
-  una respuesta sin él. Pero si ya tienes los datos para responder, responde:
-  no explores por explorar (cada llamada reenvía toda la conversación).
+  una respuesta sin él.
 -   Lista vacía de un tool = filtros muy estrictos, NO ausencia de datos:
   reintenta sin rubro o con limit mayor antes de decir "no hay".
   Preguntas de cobertura se responden del rango con datos (ver contexto),
@@ -130,6 +148,21 @@ def ask(texto: str, history: list[dict] | None = None,
         (history or []) + [{"role": "user", "content": texto}],
         tool_defs(), executor or T.execute,
         model or llm.tool_model(), temperature=0.2, max_steps=5)
+    if not audit and _pide_datos(texto):
+        # Respuesta vacía de datos ante pregunta de negocio: un reintento
+        # exigiendo get_signals primero. Fail-soft: si persiste, se entrega
+        # igual con warning (el chat nunca truena por esto).
+        import sys as _sys
+        print(f"[warn] ask sin tools ante {texto[:60]!r}: reintento",
+              file=_sys.stderr)
+        respuesta, audit, truncado = llm.run_tool_loop(
+            SYSTEM + _contexto() + _perfil_block(perfil),
+            (history or []) + [{"role": "user", "content":
+                                f"{texto}\n(Antes de responder, llama "
+                                "get_signals: tu respuesta anterior no usó "
+                                "datos del negocio y fue rechazada.)"}],
+            tool_defs(), executor or T.execute,
+            model or llm.tool_model(), temperature=0.2, max_steps=5)
     llamadas = [{"tool": a["tool"], "args": a.get("args", {})} for a in audit]
     ex = executor or T.execute
     resultados = _releer_tools(audit, ex)

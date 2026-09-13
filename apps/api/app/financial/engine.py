@@ -6,7 +6,7 @@ interpretan estos números; nunca los calculan.
 Convenciones:
 - Dinero en Decimal. Tasas como Decimal (0.16, 0.30).
 - Traspasos internos (es_interno) se excluyen de ventas/gastos: no son
-  flujo operativo (esta cuenta se fondea desde BBVA).
+  flujo operativo (esta cuenta se fondea desde Banorte).
 - Las devoluciones ya vienen neteadas en Transaction (tipo por flujo neto).
 """
 

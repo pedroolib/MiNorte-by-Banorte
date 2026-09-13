@@ -1,9 +1,9 @@
-"""Parser BBVA: categorías, extracción y reglas por fuente (strings ficticios)."""
+"""Parser Banorte: categorías, extracción y reglas por fuente (strings ficticios)."""
 
 from decimal import Decimal
 
 from app.financial import reconcile as rc
-from app.integrations.banking import bbva_pdf as bb
+from app.integrations.banking import banorte_comercial_pdf as bcom
 from app.schemas.transaction import Transaction
 
 
@@ -20,8 +20,8 @@ DET = "Detalle de Movimientos Realizados"
 FIN = "BBVA MEXICO, S.A."
 
 
-def test_clasificar_bbva():
-    C = bb.clasificar_bbva
+def test_clasificar_banorte():
+    C = bcom.clasificar_banorte
     assert C("SPEI ENVIADO BANORTE 123") == ("spei_enviado", False)
     assert C("SPEI RECIBIDOBANAMEX 123") == ("spei_recibido", False)
     assert C("PAGO CUENTA DE TERCERO 123") == ("traspaso_terceros", False)
@@ -43,7 +43,7 @@ def test_extraccion_y_materializacion():
     d1 = "0026425627 072 PAGO FACTURAS BALATAS"
     d2 = "LUIS MACIAS SEGURA"
     t = "\n".join([DET, "  FECHA X", r1, d1, d2, FIN])
-    movs = bb.parsear_texto(t, 2026)
+    movs = bcom.parsear_texto(t, 2026)
     assert len(movs) == 1
     m = movs[0]
     assert m.retiro == Decimal("1946.99") and m.deposito == 0
@@ -63,8 +63,8 @@ def test_conciliable_por_fuente():
     # banorte: manda el RFC (comportamiento intacto)
     assert rc.es_conciliable(T(merchant_rfc="AAA010101AAA")) is True
     assert rc.es_conciliable(T(merchant_rfc=None)) is False
-    # bbva: manda el nombre (sin RFCs en el formato)
-    b = dict(source="bbva_mock", merchant_rfc=None)
+    # banorte-comercial: manda el nombre (sin RFCs en el formato)
+    b = dict(source="banorte_comercial", merchant_rfc=None)
     assert rc.es_conciliable(T(**b)) is True
     assert rc.es_conciliable(T(**b, merchant_name="VENTAS TPV")) is False
     assert rc.es_conciliable(T(**b, merchant_name="AB")) is False

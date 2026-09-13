@@ -134,7 +134,7 @@ export const fetchSugerencia = () =>
 export async function fetchGenDashboard(): Promise<GenDashboard> {
   try {
     return await get<GenDashboard>("/api/dashboard/gen");
-  } catch {
+  } catch (e) {
     const dashboard = await fetchDashboard();
     const current = dashboard.monthly.at(-1);
     const previous = dashboard.monthly.at(-2);
@@ -162,6 +162,8 @@ export async function fetchGenDashboard(): Promise<GenDashboard> {
     return {
       month: dashboard.month,
       week_id: "Resumen mensual",
+      degraded: true,
+      gen_failed: e instanceof Error ? e.message : "gen no disponible",
       summary: `Tu negocio registró ${money(Number(dashboard.signals.ventas))} en ventas. Hay ${money(dashboard.summary.cuentas_por_cobrar)} pendientes de cobro y ${money(dashboard.summary.efectivo)} disponibles en caja.`,
       anchors: [
         {

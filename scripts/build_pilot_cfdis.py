@@ -163,7 +163,7 @@ def main() -> None:
             amount=Decimal(r["retiro"] or r["deposito"] or "0"), currency="MXN",
             date=datetime.fromisoformat(r["fecha"]), description=r["descripcion"],
             merchant_name=r["comercio"], merchant_rfc=r["rfc"] or None,
-            type=r["tipo"], source=r.get("source") or "bbva_mock",
+            type=r["tipo"], source=r.get("source") or "banorte_mock",
             es_interno=r["es_interno"] == "1", categoria=r["categoria"])
 
     if args.match_all:

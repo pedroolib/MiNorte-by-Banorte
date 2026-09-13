@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""Piloto BBVA: PDF real -> CSV espejo privado (sin anonimizar, sin commitear).
+"""Piloto Banorte: PDF real -> CSV espejo privado (sin anonimizar, sin commitear).
 
 Uso:
-    uv run --project apps/api python scripts/build_pilot_bbva.py \
+    uv run --project apps/api python scripts/build_pilot_banorte.py \
       --pdf "seed/private/piloto/chequera_jul2026.pdf" \
-      --cuenta acc_bbva_001 --company company_pilot --year 2026 \
+      --cuenta acc_banorte_001 --company company_pilot --year 2026 \
       --saldo-inicial 463711.92 --out seed/private/piloto/transactions_jul2026.csv \
       [--expect seed/private/piloto/esperado.json]
 
@@ -24,7 +24,7 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO / "apps" / "api"))
 
-from app.integrations.banking import bbva_pdf as bb  # noqa: E402
+from app.integrations.banking import banorte_comercial_pdf as bcom  # noqa: E402
 
 
 def main() -> None:
@@ -39,10 +39,10 @@ def main() -> None:
                     help="JSON {dep, ret, final} para validar totales")
     args = ap.parse_args()
 
-    movs = bb.parsear_texto(bb.extraer_texto(Path(args.pdf)), args.year)
-    errs, final = bb.validar_cadena(movs, Decimal(args.saldo_inicial))
+    movs = bcom.parsear_texto(bcom.extraer_texto(Path(args.pdf)), args.year)
+    errs, final = bcom.validar_cadena(movs, Decimal(args.saldo_inicial))
     assert not errs, errs[:10]
-    dep, ret = bb.totales(movs)
+    dep, ret = bcom.totales(movs)
     if args.expect:
         esp = json.loads(Path(args.expect).read_text())
         assert str(dep) == esp["dep"], (dep, esp["dep"])
@@ -57,7 +57,7 @@ def main() -> None:
     filas = []
     seq = 0
     for m in movs:
-        cat, interno = bb.clasificar_bbva(m.descripcion)
+        cat, interno = bcom.clasificar_banorte(m.descripcion)
         cats[cat] += 1
         seq += 1
         filas.append({
@@ -74,7 +74,7 @@ def main() -> None:
             "saldo": str(m.saldo),
             "es_interno": "1" if interno else "0",
             "categoria": cat,
-            "source": "bbva_mock",
+            "source": "banorte_mock",
         })
     out = Path(args.out)
     out.parent.mkdir(parents=True, exist_ok=True)

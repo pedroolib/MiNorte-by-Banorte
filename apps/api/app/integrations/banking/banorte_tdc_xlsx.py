@@ -1,4 +1,4 @@
-"""Parser del estado de cuenta TDC BBVA en XLSX (piloto, datos reales).
+"""Parser del estado de cuenta TDC Banorte en XLSX (piloto, datos reales).
 
 Formato observado (una hoja, sin encabezado formal):
   fila par:   ("31 jul.", DESCRIPCION, IMPORTE, None)
@@ -8,7 +8,7 @@ TIPO ∈ {"Compra", "Ingresos en efectivo", "Pago de tarjeta de crédito"}.
 Signo: cargos positivos, abonos (INTERN.PAGO TDC) negativos.
 Sin columna de saldo: los renglones resultantes llevan saldo vacío.
 
-Reglas de mapeo (espejo de clasificar_bbva en chequera):
+Reglas de mapeo (espejo de clasificar_banorte en chequera):
   Compra, importe > 0            -> egreso, categoria "otro"
   Compra ADMINISTRACION TARJ.    -> egreso, categoria "comision"
   Ingresos en efectivo (abono)   -> ingreso, es_interno=1, categoria "pago_tdc"
@@ -168,7 +168,7 @@ def _parsear_par_tipo(filas: list, year: int) -> list[MovimientoTDC]:
 
 def a_csv_row(m: MovimientoTDC, seq: int, company_id: str,
               account_id: str) -> dict:
-    """Mapea a fila del CSV espejo (mismas columnas que build_pilot_bbva)."""
+    """Mapea a fila del CSV espejo (mismas columnas que build_pilot_banorte)."""
     d = m.descripcion.upper()
     if m.tipo_mov == "Ingresos en efectivo":
         tipo, dep, ret, interno, cat = "ingreso", abs(m.importe), Decimal("0"), "1", "pago_tdc"
@@ -192,7 +192,7 @@ def a_csv_row(m: MovimientoTDC, seq: int, company_id: str,
         "saldo": "",
         "es_interno": interno,
         "categoria": cat,
-        "source": "bbva_mock",
+        "source": "banorte_mock",
     }
 
 

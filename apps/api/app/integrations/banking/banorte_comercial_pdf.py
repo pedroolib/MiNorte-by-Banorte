@@ -1,4 +1,4 @@
-"""Parser de estados de cuenta BBVA (Cuenta Comercio Empresarial) en PDF.
+"""Parser de estados de cuenta Banorte (Cuenta Comercio Empresarial) en PDF.
 
 Formato distinto a Banorte: dos fechas (OPER/LIQ), columnas
 CARGOS | ABONOS | SALDO OPERACIÓN | SALDO LIQUIDACIÓN, descripciones
@@ -32,8 +32,10 @@ _AMOUNT = re.compile(r"\$?\s?\d{1,3}(?:,\d{3})*\.\d{2}(-?)")
 _PAGE_NUM = re.compile(r"^\s*PAGINA\s+\d+\s*/\s*\d+", re.IGNORECASE)
 
 _SECTION_START = "Detalle de Movimientos"
-# OJO: BBVA no repite el título en continuaciones (a diferencia de Banorte):
-# una vez dentro, solo salimos en el cierre real. Los footers se ignoran
+# OJO: este formato no repite el título en continuaciones (a diferencia
+# del formato Enlace): una vez dentro, solo salimos en el cierre real.
+# Los footers se ignoran. Los literales "BBVA..." de abajo matchean el
+# texto impreso del PDF real y no se tocan.
 # como ruido (no traen fechas de movimiento).
 _SECTION_END = (
     "Total de Movimientos",
@@ -53,7 +55,7 @@ TOLERANCIA = Decimal("0.02")
 
 
 @dataclass
-class MovimientoBBVA:
+class MovimientoBanorte:
     fecha_oper: date
     fecha_liq: date
     descripcion: str
@@ -79,8 +81,8 @@ def _es_ruido(linea: str) -> bool:
     return any(h in linea for h in _HEADER_NOISE)
 
 
-def parsear_texto(texto: str, anio: int) -> list[MovimientoBBVA]:
-    movs: list[MovimientoBBVA] = []
+def parsear_texto(texto: str, anio: int) -> list[MovimientoBanorte]:
+    movs: list[MovimientoBanorte] = []
     dentro = False
     actual: list[str] | None = None
 
@@ -112,7 +114,7 @@ def parsear_texto(texto: str, anio: int) -> list[MovimientoBBVA]:
     return movs
 
 
-def _materializar(lineas: list[str], anio: int) -> MovimientoBBVA | None:
+def _materializar(lineas: list[str], anio: int) -> MovimientoBanorte | None:
     m0 = _ROW.match(lineas[0])
     assert m0
     d1, m1, d2, m2, resto = m0.groups()
@@ -140,7 +142,7 @@ def _materializar(lineas: list[str], anio: int) -> MovimientoBBVA | None:
     saldo = saldos[0] if saldos else Decimal("0")
     if not deposito and not retiro and not saldos:
         return None
-    return MovimientoBBVA(fecha_oper, fecha_liq, descripcion, comercio,
+    return MovimientoBanorte(fecha_oper, fecha_liq, descripcion, comercio,
                           deposito, retiro, saldo, bool(saldos),
                           "\n".join(lineas))
 
@@ -163,7 +165,7 @@ def _limpiar_detalle(texto: str) -> str:
 
 
 def _extraer_comercio(lineas: list[str], resto: str) -> str:
-    """Beneficiario real: en BBVA vive en el detalle, no en el encabezado."""
+    """Beneficiario real: en Banorte vive en el detalle, no en el encabezado."""
     up = resto.upper()
     detalle = [ln for ln in lineas[1:]
                if ln.strip() and not ln.upper().strip().startswith("DEL ")]
@@ -203,8 +205,8 @@ def _extraer_comercio(lineas: list[str], resto: str) -> str:
     return ""
 
 
-def clasificar_bbva(descripcion: str) -> tuple[str, bool]:
-    """(categoria, es_interno) para movimientos BBVA. Orden importa."""
+def clasificar_banorte(descripcion: str) -> tuple[str, bool]:
+    """(categoria, es_interno) para movimientos Banorte. Orden importa."""
     d = descripcion.upper()
     if "TRASPADO ENTRE CUENTAS" in d or "TRASPASO ENTRE CUENTAS" in d:
         return "traspaso_interno", True
@@ -239,7 +241,7 @@ def clasificar_bbva(descripcion: str) -> tuple[str, bool]:
     return "otro", False
 
 
-def validar_cadena(movs: list[MovimientoBBVA],
+def validar_cadena(movs: list[MovimientoBanorte],
                    saldo_inicial: Decimal) -> list[str]:
     errores: list[str] = []
     previo = saldo_inicial
@@ -252,7 +254,7 @@ def validar_cadena(movs: list[MovimientoBBVA],
     return errores, previo
 
 
-def totales(movs: list[MovimientoBBVA]) -> tuple[Decimal, Decimal]:
+def totales(movs: list[MovimientoBanorte]) -> tuple[Decimal, Decimal]:
     dep = sum((m.deposito for m in movs), Decimal("0"))
     ret = sum((m.retiro for m in movs), Decimal("0"))
     return dep, ret

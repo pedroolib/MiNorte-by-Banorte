@@ -8,7 +8,7 @@ Uso:
     uv run --project apps/api python scripts/load_pilot_tdc.py \
       --csv seed/private/piloto/transactions_tdc_jul2026.csv \
       --company company_pilot --cuenta acc_tdc_001 \
-      --alias "TDC BBVA 6159" --expect-compras 104967.85 --expect-abonos 114860.63
+      --alias "TDC Banorte 6159" --expect-compras 104967.85 --expect-abonos 114860.63
 """
 
 from __future__ import annotations

@@ -55,8 +55,8 @@ def es_conciliable(t: Transaction) -> bool:
         # Todo cobro no-interno concilia (su emitido existe por construcción
         # en match-total; antes solo spei_recibido).
         return True
-    if t.source == "bbva_mock":
-        # BBVA no trae RFC: se concilia por nombre (verificado en piloto)
+    if t.source == "banorte_comercial":
+        # Banorte-comercial no trae RFC: se concilia por nombre (verificado en piloto)
         return _nombre_util(t.merchant_name)
     return bool(t.merchant_rfc)
 

@@ -4,7 +4,7 @@ from decimal import Decimal
 
 import pytest
 
-from app.integrations.banking import bbva_tdc_xlsx as tdc
+from app.integrations.banking import banorte_tdc_xlsx as tdc
 
 
 def _wb(path, filas):

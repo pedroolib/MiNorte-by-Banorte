@@ -177,3 +177,26 @@ def test_rotacion_por_week_id_no_por_fecha():
              "shown_at": ahora, "week_id": "2026-W41"} for i in range(5, 10)])
     eleg = C.discover(pool, exp, 5, wid="2026-W42")
     assert [i["kind"] for i in eleg] == [f"k{i}" for i in range(5)]
+
+
+def test_garantiza_cuatro_aunque_falte_diseno():
+    # design_fn que pierde 2 de 4: compose reintenta y respalda sin LLM extra
+    llamadas = []
+    def _corto(cards, components):
+        llamadas.append(len(cards))
+        recorte = {1: 2, 2: 1}.get(len(llamadas), 0)
+        cards = cards[:recorte]
+        return {"cards": [{"insight_id": i["id"], "component": "hero_number",
+                           "props": {"label": "L", "sublabel": "S",
+                                     "value": "1"},
+                           "rationale": "t"} for i in cards]}
+    pool = [_insight(f"k{i}", "info", fam=f)
+            for i, f in enumerate(["operations", "growth", "risk", "tax"])]
+    import app.composition as C
+    C_RES = C.compose("2026-07", pool, {}, [], _ex({}), "2026-W99",
+                      design_fn=_corto, summary_fn=lambda c, m: "r")
+    assert len(C_RES["discovery"]) == 4
+    got = {c["insight_id"] for c in C_RES["discovery"]}
+    assert got == {f"k{i}" for i in range(4)}
+    assert any(c["component"] == "insight_text"  # respaldo determinista
+               for c in C_RES["discovery"])

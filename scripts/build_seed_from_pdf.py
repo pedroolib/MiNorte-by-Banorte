@@ -36,7 +36,7 @@ OUT = REPO / "seed" / "transactions.csv"
 
 EMPRESA = "CAFE NORTENO SA DE CV"
 RFC_PROPIO = "CNM160812AB1"
-CLABE_PROPIA_BBVA = "012580001234567890"
+CLABE_PROPIA_BANORTE = "012580001234567890"
 CUENTA_PROPIA = "1034567890"
 
 # Mes real -> mes demo (mismo día, año 2026)
@@ -159,7 +159,7 @@ class Anonimizador:
         d = re.sub(r"SERVICIOS INDUSTRIAL(?:ES)?(?: ES)?(?: HMM)?(?: SA DE CV)?",
                    EMPRESA, d)
         d = d.replace("SIH1311152C0", RFC_PROPIO)
-        d = d.replace("012680001953072013", CLABE_PROPIA_BBVA)
+        d = d.replace("012680001953072013", CLABE_PROPIA_BANORTE)
         d = re.sub(r"\b0211807410\b", CUENTA_PROPIA, d)
         # 2. comercios por keyword (antes de tocar RFCs sueltos)
         for pat, rep in COMERCIOS_KEYWORD:
@@ -168,7 +168,7 @@ class Anonimizador:
         def _cli(m: re.Match) -> str:
             nombre, clabe, rfc = m.group(1), m.group(2), m.group(3).replace(" ", "")
             if rfc == RFC_PROPIO or "TRASPASO INTERNO" in d.upper():
-                return (f"CLIENTE {EMPRESA} DE LA CLABE {CLABE_PROPIA_BBVA} "
+                return (f"CLIENTE {EMPRESA} DE LA CLABE {CLABE_PROPIA_BANORTE} "
                         f"CON RFC {RFC_PROPIO}")
             if re.search(r"\bS\.?A\.?( DE C\.?V\.?)?\b", nombre):
                 rfc_f = self.rfc_cliente(rfc)

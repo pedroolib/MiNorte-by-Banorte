@@ -19,7 +19,7 @@ Cómo correrlo: `docker compose up --build` (api :8000, web :3000) o
 * **473 movimientos JUN–AGO 2026** (`seed/transactions.csv`) parseados de
   estados Banorte reales con parser propio validado (0 errores de cadena,
   depósitos exactos al centavo vs resúmenes). Empresa pagadora: 92% del
-  ingreso es fondeo interno desde BBVA; historia real: caja 59 días → 20 → 4.
+  ingreso es fondeo interno desde Banorte; historia real: caja 59 días → 20 → 4.
 * **162 CFDI 4.0** (`seed/cfdis/emitido|recibido/*.xml`): 16 emitidos
   (11 cobrados + 5 CxC por **$76,550**) y 146 recibidos con IVA exacto.
   **4 gastos sin factura ($2,123)** dejados a propósito para el demo.

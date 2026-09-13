@@ -103,11 +103,9 @@ def insight_schema(n: int, include_anchors: bool = True) -> dict:
                                          "enum": list(IMPACTS)},
                     "actionability": {"type": "string",
                                       "enum": list(IMPACTS)},
-                    "evidencia": {
-                        # Tope 3: la evidencia cita fuente, no enumera.
-                        # Cada entrada es output cobrado.
-                        "type": "array", "minItems": 1, "maxItems": 3,
-                        "items": {
+                        "evidencia": {
+                            "type": "array", "minItems": 1,
+                            "items": {
                             "type": "object", "additionalProperties": False,
                             "properties": {
                                 "señal": {"type": "string"},

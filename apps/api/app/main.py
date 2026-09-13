@@ -209,7 +209,7 @@ def api_summary():
     """Resumen del ÚLTIMO mes con totales bancarios (coherente con el
     dashboard del spec). Lee snapshot si existe, si no calcula live.
 
-    Nota T4: esta cuenta es pagadora y se fondea desde BBVA; el motor
+    Nota T4: esta cuenta es pagadora y se fondea desde Banorte; el motor
     (engine.operativos) separa flujo operativo vs interno para el
     Consultor. Impuesto/CxC/sin-CFDI se refinan en T4/T5.
     """

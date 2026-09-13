@@ -462,6 +462,11 @@ function WeeklyView({
               {data.month}
             </p>
             <h2 className="mt-1 text-xl font-bold tracking-tight">Tu semana financiera</h2>
+            {data.degraded ? (
+              <Badge variant="outline" title={data.gen_failed ?? "gen no disponible"}>
+                Vista básica — sin IA por ahora
+              </Badge>
+            ) : null}
           </div>
         </div>
         {data.summary ? (
@@ -506,7 +511,17 @@ function WeeklyView({
             {conHuerfana(data.discovery).map(wrap)}
           </div>
         </section>
-      ) : null}
+      ) : (
+        <section className="space-y-3" aria-label="Descubrimientos">
+          <h2 className="text-sm font-bold tracking-tight">
+            Descubrimientos
+          </h2>
+          <p className="text-sm text-muted-foreground">
+            Esta semana no hay hallazgos nuevos. Si esperabas verlos, corre
+            el análisis del mes para generarlos.
+          </p>
+        </section>
+      )}
 
       {scenarios.length > 0 ? (
         <section className="space-y-3" aria-label="Escenarios guardados">

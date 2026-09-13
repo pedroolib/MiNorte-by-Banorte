@@ -25,7 +25,7 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO / "apps" / "api"))
 
-from app.integrations.banking import bbva_tdc_xlsx as tdc  # noqa: E402
+from app.integrations.banking import banorte_tdc_xlsx as tdc  # noqa: E402
 
 
 def _cve(desc: str) -> str | None:

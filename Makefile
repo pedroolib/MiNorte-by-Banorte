@@ -40,9 +40,9 @@ PILOTO_DIR = seed/private/piloto
 PILOTO_COMPANY = company_pilot
 
 pilot-csv:
-	uv run --project apps/api python scripts/build_pilot_bbva.py \
+	uv run --project apps/api python scripts/build_pilot_banorte.py \
 	  --pdf "$(PILOTO_DIR)/chequera_jul2026.pdf" \
-	  --cuenta acc_bbva_001 --company $(PILOTO_COMPANY) --year 2026 \
+	  --cuenta acc_banorte_001 --company $(PILOTO_COMPANY) --year 2026 \
 	  --saldo-inicial 463711.92 \
 	  --out "$(PILOTO_DIR)/transactions_jul2026.csv" \
 	  --expect "$(PILOTO_DIR)/esperado.json"
@@ -58,7 +58,7 @@ pilot-tdc-load:
 	uv run --project apps/api python scripts/load_pilot_tdc.py \
 	  --csv "$(PILOTO_DIR)/transactions_tdc_jul2026.csv" \
 	  --company $(PILOTO_COMPANY) --cuenta acc_tdc_001 \
-	  --alias "TDC BBVA 6159" \
+	  --alias "TDC Banorte 6159" \
 	  --expect-compras 106118.85 --expect-abonos 114860.63
 
 pilot-cfdis:

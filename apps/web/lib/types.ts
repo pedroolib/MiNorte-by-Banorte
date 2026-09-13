@@ -222,6 +222,8 @@ export interface GenDashboard {
   actions: GenCard[];
   discovery: GenCard[];
   summary: string;
+  degraded?: boolean;
+  gen_failed?: string | null;
 }
 
 /** Ticket (spec #3.3 caso 1, TIER 2): foto real -> factura real. */
