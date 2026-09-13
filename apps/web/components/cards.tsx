@@ -167,6 +167,56 @@ export function FinancialAnchor({
   );
 }
 
+/* ---------------- data_table ---------------- */
+
+export function DataTable({
+  title,
+  columns,
+  rows,
+  footnote,
+}: {
+  title: string;
+  columns: string[];
+  rows: (string | number)[][];
+  footnote?: string;
+}) {
+  if (!columns.length || !rows.length) return <Empty what="filas" />;
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <CardTitle className="text-sm">{title}</CardTitle>
+      </CardHeader>
+      <CardContent className="px-2">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              {columns.map((c, i) => (
+                <TableHead key={i} className={i > 0 ? "text-right" : ""}>
+                  {c}
+                </TableHead>
+              ))}
+            </TableRow>
+          </TableHeader>
+            <TableBody>
+              {rows.map((row, i) => (
+                <TableRow key={i}>
+                  {row.map((cell, j) => (
+                    <TableCell key={j} className={j > 0 ? "text-right font-medium" : "font-medium"}>
+                      {typeof cell === "number"
+                        ? cell.toLocaleString("es-MX")
+                        : cell}
+                    </TableCell>
+                  ))}
+                </TableRow>
+              ))}
+            </TableBody>
+        </Table>
+        <Footnote text={footnote} />
+      </CardContent>
+    </Card>
+  );
+}
+
 /* ---------------- hero_number ---------------- */
 
 export function HeroNumber({
@@ -304,7 +354,7 @@ export function BarsTotal({
         <ChartContainer config={{ value: { label: title, color: "hsl(var(--primary))" } }} className="h-28 w-full">
           <BarChart data={data} margin={{ top: 4, right: 4, bottom: 0, left: 4 }}>
             <ChartTooltip cursor={false} content={<ChartTooltipContent hideLabel />} />
-            <XAxis dataKey="label" tickLine={false} axisLine={false} tickMargin={6} fontSize={10} />
+            <XAxis dataKey="label" tickLine={false} axisLine={false} tickMargin={6} fontSize={9} interval={0} angle={-18} textAnchor="end" height={52} />
             <Bar dataKey="value" radius={[4, 4, 0, 0]}>
               {data.map((entry, i) => (
                 <Cell key={entry.label} fill={i === data.length - 1 ? "hsl(var(--primary))" : "hsl(var(--primary) / 0.2)"} />

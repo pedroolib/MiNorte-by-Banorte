@@ -16,6 +16,23 @@ export interface CatalogEntry {
  */
 export const CATALOG: CatalogEntry[] = [
   {
+    component: "data_table",
+    props: {
+      title: "Cuentas por cobrar",
+      columns: ["Cliente", "Pendiente"],
+      rows: [
+        ["Cafe Negrita, S.A. C.V.", "$27,500.00"],
+        ["Sertres Norte", "$23,500.00"],
+        ["Procables Mexico", "$20,500.00"],
+        ["Luis Fernando Reyes Ruiz Palacios", "$19,500.00"],
+        ["Element Fleet Management Corp Mexico", "$7,500.00"],
+      ],
+      footnote: "Total $98,500.00 en 5 facturas (piloto julio).",
+    },
+    title: "Tabla de datos",
+    source: "Piloto julio verificado (5 CxC reales, total $98,500.00)",
+  },
+  {
     component: "financial_anchor",
     props: {
       metric: "revenue",

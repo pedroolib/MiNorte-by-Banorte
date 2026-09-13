@@ -47,7 +47,7 @@ def test_props_schemas_cubren_catalogo_congelado():
     componentes = re.findall(r'component: "([a-z_]+)"', ts)
     assert sorted(D.PROPS_SCHEMAS) == sorted(set(componentes)), (
         set(componentes) ^ set(D.PROPS_SCHEMAS))
-    assert len(D.PROPS_SCHEMAS) == 18
+    assert len(D.PROPS_SCHEMAS) == 19
 
 
 class FakeLLM:
@@ -304,3 +304,17 @@ def test_poda_items_incompletos():
     G._normalizar(c)
     assert c["props"]["items"] == [{"label": "M", "percent": 50}]
     assert G.validate_choice(c, ["progress_list"]) == []
+
+
+def test_data_table_en_catalogo():
+    import app.agents.designer as G
+    ok = {"insight_id": "a1", "component": "data_table",
+          "props": {"title": "CxC",
+                    "columns": ["Cliente", "Monto"],
+                    "rows": [["Luis", "$19,500.00"], ["Sertres", 23500]]},
+          "rationale": "x"}
+    assert G.validate_choice(ok, ["data_table"]) == []
+    mal = {"insight_id": "a1", "component": "data_table",
+           "props": {"title": "T", "columns": [], "rows": []},
+           "rationale": "x"}
+    assert G.validate_choice(mal, ["data_table"]) != []

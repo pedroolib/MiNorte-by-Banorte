@@ -175,12 +175,14 @@ def _responses_loop(system: str, history: list[dict], tools: list[ToolDef],
                     if getattr(it, "type", "") == "function_call"]
         if not llamadas:
             return _responses_text(resp.output), audit, False
+        # Reenviar TODA la salida (incluye reasoning): la API exige el item
+        # reasoning junto a cada function_call que se le devuelva.
+        entrada.extend(resp.output or [])
         for it in llamadas:
             try:
                 args = json.loads(getattr(it, "arguments", None) or "{}")
             except json.JSONDecodeError as e:
                 raise LLMError(f"args inválidos en {it.name}: {e}")
-            entrada.append(it)
             t0 = time.time()
             try:
                 out = executor(it.name, args)

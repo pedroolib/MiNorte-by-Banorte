@@ -17,6 +17,7 @@ Si el `component` no existe en el registry, se muestra fallback, nunca crashea.
 
 | `component` | `props` | Fuente |
 |---|---|---|
+| `data_table` | `{ title: string; columns: string[]; rows: (string \| number)[][]; footnote?: string }` | Listados (clientes, facturas, movimientos). Números se formatean es-MX; strings tal cual. |
 | `financial_anchor` | `{ metric: string; label: string; value: number \| string \| null; trend: { direction: "up" \| "down" \| "flat"; percentage: number } \| null; analyst_comment: string }` | `GET /api/dashboard/gen` → `anchors[]` (número del motor + comentario del Analista). |
 | `receivables_resolution` | `{ count: number; total: string }` | Alerta `cuentas_por_cobrar` → payload. Atajo curado del flujo de cobranza (layout fijo). |
 | `receipts_resolution` | `{ count: number; total: string }` | Alerta `sin_factura` → payload. Atajo curado del flujo de facturas (layout fijo). |
