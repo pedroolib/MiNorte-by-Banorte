@@ -128,14 +128,9 @@ export default function Workspace() {
     <div className="min-h-screen">
       <header className="sticky top-0 z-40 border-b border-border/70 bg-background/85 backdrop-blur-xl">
         <div className="mx-auto flex h-16 max-w-7xl items-center gap-6 px-4 sm:px-6 lg:px-8">
-          <Link href="/" className="flex shrink-0 items-center gap-2.5" aria-label="MiNorte inicio">
-            <BanorteMark />
-            <div className="leading-none">
-              <span className="block text-sm font-extrabold tracking-tight">MiNorte</span>
-              <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-                by Banorte
-              </span>
-            </div>
+          <Link href="/" className="flex shrink-0 items-center" aria-label="MiNorte inicio">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/minorte-logo.png" alt="MiNorte" className="h-7 w-auto" />
           </Link>
 
           <div className="ml-auto flex items-center gap-2">
@@ -403,7 +398,7 @@ function WeeklyView({
         <div className="flex flex-wrap items-center gap-3">
           <div>
             <p className="text-xs font-bold uppercase tracking-[0.16em] text-muted-foreground">
-              {data.month} · {data.week_id}
+              {data.month}
             </p>
             <h2 className="mt-1 text-xl font-bold tracking-tight">Tu semana financiera</h2>
           </div>

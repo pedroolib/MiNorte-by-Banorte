@@ -4,7 +4,7 @@ import { OnboardingGate } from "@/components/onboarding-gate";
 import { Providers } from "./providers";
 
 export const metadata: Metadata = {
-  title: "MiNorte by Banorte",
+  title: "MiNorte",
   description: "Tu centro financiero inteligente de Banorte",
 };
 

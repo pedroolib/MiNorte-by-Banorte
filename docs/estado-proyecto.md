@@ -99,7 +99,13 @@ abstraído (`log`|`resend`). `/cobranza` funcional sin diseño.
    sin parcial. Variedad: mapa kind→componente + `footnote?` en 8
    componentes visuales (tipos + render + fixtures + doc) + tope 2
    `insight_text` por diseño + garantía 1:1 insight→tarjeta (faltantes al
-   reintento). Modelos: loops de tools usan `OPENAI_TOOL_MODEL`
+   reintento). Gráfica obligatoria: ningún diseño sale sin ≥1 tarjeta
+   visual (bars/donut/waterfall/rings/progress/trend/series); si falta,
+   va al reintento con motivo, y si persiste falla en voz alta. Series
+   (bars/time_series) exigen ≥2 puntos alineados: una barra sola se
+   rechaza (el modelo trae meses pasados con get_metric o elige otra).
+   Rotación dura por week_id (no por fecha): la semana anterior no
+   repite salvo pool corto. Modelos: loops de tools usan `OPENAI_TOOL_MODEL`
    (mini; los reasoning nuevos rechazan function tools) y la elección
    de tarjetas usa flagship (`chat_json` sin tools sí lo acepta);
    `chat_json(..., strict=False)` para schemas con props libres.

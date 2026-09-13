@@ -77,9 +77,41 @@ def _fake(monkeypatch, *respuestas):
 
 def _card(iid, comp="hero_number"):
     props = {"hero_number": {"label": "L", "sublabel": "S", "value": "4"},
-             "insight_text": {"title": "T", "body": "B"}}[comp]
+             "insight_text": {"title": "T", "body": "B"},
+             "bars_total": {"title": "T", "total": "10",
+                            "values": [6, 4], "labels": ["A", "B"]}}[comp]
     return {"insight_id": iid, "component": comp, "props": props,
             "rationale": "x"}
+
+
+def test_grafica_obligatoria_va_a_reintento(monkeypatch):
+    import app.agents.designer as G
+    comps = ["hero_number", "insight_text", "bars_total"]
+    fake = _fake(monkeypatch,
+                 {"cards": [_card("a1"), _card("a2", "insight_text")]},
+                 {"cards": [_card("a2", "bars_total")]})
+    out = G.design([{"id": "a1"}, {"id": "a2"}], comps)
+    assert [c["insight_id"] for c in out["cards"]] == ["a1", "a2"]
+    assert out["cards"][1]["component"] == "bars_total"
+    assert fake.visto["pedidos"] == [None, 1]  # la hero va al reintento
+    assert "GRÁFICA" in fake.visto["mensajes"][-1]
+
+
+def test_grafica_obligatoria_falla_en_voz_alta(monkeypatch):
+    import app.agents.designer as G
+    comps = ["hero_number", "insight_text", "bars_total"]
+    _fake(monkeypatch, {"cards": [_card("a1")]},
+          {"cards": [_card("a1")]})
+    with pytest.raises(Exception, match="gráfica"):
+        G.design([{"id": "a1"}], comps)
+
+
+def test_grafica_no_se_exige_sin_charts_en_catalogo(monkeypatch):
+    import app.agents.designer as G
+    fake = _fake(monkeypatch, {"cards": [_card("a1")]})
+    out = G.design([{"id": "a1"}], ["hero_number", "insight_text"])
+    assert out["cards"][0]["component"] == "hero_number"
+    assert fake.visto["pedidos"] == [None]  # sin reintento
 
 
 def test_design_usa_tools_y_valida(monkeypatch):
@@ -356,3 +388,28 @@ def test_bars_orden_descendente_si_lo_afirma():
     serie = dict(base, props={"title": "Ingresos por mes", "total": "9",
                               "labels": ["J", "A"], "values": [3, 6]})
     assert G.validate_choice(serie, ["bars_total"]) == []
+
+
+def test_bars_un_punto_rechazada_dos_valida():
+    import app.agents.designer as G
+    una = {"insight_id": "a1", "component": "bars_total",
+           "props": {"title": "T", "total": "10", "values": [10],
+                     "labels": ["JUL"]}, "rationale": "x"}
+    assert any("2 barras" in e or "2 puntos" in e or "al menos 2" in e
+               for e in G.validate_choice(una, ["bars_total"]))
+    dos = dict(una, props={"title": "T", "total": "18", "values": [10, 8],
+                           "labels": ["JUN", "JUL"]})
+    assert G.validate_choice(dos, ["bars_total"]) == []
+    des = dict(una)
+    des["props"] = {"title": "T", "total": "18", "values": [10, 8],
+                    "labels": ["JUN", "JUL", "AGO"]}
+    assert any("desalineados" in e for e in G.validate_choice(des, ["bars_total"]))
+
+
+def test_time_series_un_punto_rechazada():
+    import app.agents.designer as G
+    c = {"insight_id": "a1", "component": "time_series",
+         "props": {"title": "T", "points": [
+             {"label": "JUL", "income": 1, "expenses": 2}],
+             "series": "both"}, "rationale": "x"}
+    assert any("al menos 2" in e for e in G.validate_choice(c, ["time_series"]))

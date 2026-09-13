@@ -144,3 +144,36 @@ def test_drill_chat_scenarios_sin_db_piden_supabase():
                       params={"insight_id": "x"}).status_code == 503
     assert client.get("/api/scenarios").status_code == 503
     assert client.post("/api/scenarios", json={}).status_code == 503
+
+
+def test_rotacion_dura_no_repite_semana_pasada():
+    from datetime import datetime, timezone
+    pool = [_insight(f"k{i}", "warning" if i < 7 else "info",
+                     fam="operations") for i in range(10)]
+    # repartir familias para no chocar con diversidad
+    fams = ["operations", "growth", "risk", "tax", "cash_flow",
+            "expenses", "receivables", "profitability"]
+    for i, it in enumerate(pool):
+        it["family"] = fams[i % len(fams)]
+    ahora = datetime.now(timezone.utc).isoformat()
+    exp = [{"insight_kind": f"k{i}", "insight_fingerprint": f"k{i}|x",
+            "shown_at": ahora} for i in range(5)]
+    eleg = C.discover(pool, exp, 5)
+    assert [i["kind"] for i in eleg] == [f"k{i}" for i in range(5, 10)]
+
+
+def test_rotacion_por_week_id_no_por_fecha():
+    from datetime import datetime, timezone
+    pool = [_insight(f"k{i}", "warning", fam="operations") for i in range(10)]
+    fams = ["operations", "growth", "risk", "tax", "cash_flow",
+            "expenses", "receivables", "profitability"]
+    for i, it in enumerate(pool):
+        it["family"] = fams[i % len(fams)]
+    ahora = datetime.now(timezone.utc).isoformat()
+    # 3 "semanas" el MISMO día: solo la anterior inmediata excluye
+    exp = ([{"insight_kind": f"k{i}", "insight_fingerprint": "x",
+             "shown_at": ahora, "week_id": "2026-W40"} for i in range(5)] +
+           [{"insight_kind": f"k{i}", "insight_fingerprint": "x",
+             "shown_at": ahora, "week_id": "2026-W41"} for i in range(5, 10)])
+    eleg = C.discover(pool, exp, 5, wid="2026-W42")
+    assert [i["kind"] for i in eleg] == [f"k{i}" for i in range(5)]
