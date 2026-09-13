@@ -17,7 +17,14 @@ def get_conversacion(sb: Any, company_id: str, cid: str) -> dict | None:
     return (res.data or [None])[0]
 
 
-def historial(sb: Any, cid: str, limite: int = 10) -> list[dict]:
+def historial(sb: Any, cid: str, limite: int = 6) -> list[dict]:
+    """Ventana deslizante: solo los últimos turnos viajan al modelo.
+
+    El historial completo vive en DB; mandarlo todo cada turno hace
+    crecer el input linealmente (y se reenvía en CADA iteración del
+    tool loop). 6 mensajes ≈ 3 intercambios: contexto suficiente sin
+    quemar tokens.
+    """
     res = (sb.table("messages").select("role,contenido")
            .eq("conversation_id", cid).order("created_at").execute())
     msgs = [{"role": ("user" if r["role"] == "usuario" else "assistant"),

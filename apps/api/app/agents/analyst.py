@@ -85,58 +85,61 @@ ANALYST_TOOLS = ["get_signals", "metric_catalog", "get_metric",
                  "get_open_receivables", "get_cash_flow"]
 
 
-def insight_schema(n: int) -> dict:
-    return {
-        "type": "object", "additionalProperties": False,
-        "properties": {
-            "anchor_analysis": {
-                "type": "array", "minItems": 4, "maxItems": 4,
-                "items": {
-                    "type": "object", "additionalProperties": False,
-                    "properties": {
-                        "metric": {"type": "string",
-                                   "enum": ["revenue", "profit", "cash",
-                                            "estimated_tax"]},
-                        "comment": {"type": "string"},
-                    },
-                    "required": ["metric", "comment"],
-                },
-            },
-            "insights": {
-                "type": "array", "minItems": n, "maxItems": n,
-                "items": {
-                    "type": "object", "additionalProperties": False,
-                    "properties": {
-                        "kind": {"type": "string"},
-                        "family": {"type": "string",
-                                   "enum": list(FAMILIES)},
-                        "severity": {"type": "string",
-                                     "enum": ["info", "warning", "critical"]},
-                        "titulo": {"type": "string"},
-                        "detalle": {"type": "string"},
-                        "financial_impact": {"type": "string",
-                                             "enum": list(IMPACTS)},
-                        "actionability": {"type": "string",
-                                          "enum": list(IMPACTS)},
-                        "evidencia": {
-                            "type": "array", "minItems": 1,
-                            "items": {
-                                "type": "object", "additionalProperties": False,
-                                "properties": {
-                                    "señal": {"type": "string"},
-                                },
-                                "required": ["señal"],
+def insight_schema(n: int, include_anchors: bool = True) -> dict:
+    props: dict = {
+        "insights": {
+            "type": "array", "minItems": n, "maxItems": n,
+            "items": {
+                "type": "object", "additionalProperties": False,
+                "properties": {
+                    "kind": {"type": "string"},
+                    "family": {"type": "string",
+                               "enum": list(FAMILIES)},
+                    "severity": {"type": "string",
+                                 "enum": ["info", "warning", "critical"]},
+                    "titulo": {"type": "string"},
+                    "detalle": {"type": "string"},
+                    "financial_impact": {"type": "string",
+                                         "enum": list(IMPACTS)},
+                    "actionability": {"type": "string",
+                                      "enum": list(IMPACTS)},
+                    "evidencia": {
+                        # Tope 3: la evidencia cita fuente, no enumera.
+                        # Cada entrada es output cobrado.
+                        "type": "array", "minItems": 1, "maxItems": 3,
+                        "items": {
+                            "type": "object", "additionalProperties": False,
+                            "properties": {
+                                "señal": {"type": "string"},
                             },
+                            "required": ["señal"],
                         },
                     },
-                    "required": ["kind", "family", "severity", "titulo",
-                                 "detalle", "financial_impact",
-                                 "actionability", "evidencia"],
                 },
+                "required": ["kind", "family", "severity", "titulo",
+                             "detalle", "financial_impact",
+                             "actionability", "evidencia"],
             },
         },
-        "required": ["anchor_analysis", "insights"],
     }
+    required = ["insights"]
+    if include_anchors:
+        props["anchor_analysis"] = {
+            "type": "array", "minItems": 4, "maxItems": 4,
+            "items": {
+                "type": "object", "additionalProperties": False,
+                "properties": {
+                    "metric": {"type": "string",
+                               "enum": ["revenue", "profit", "cash",
+                                        "estimated_tax"]},
+                    "comment": {"type": "string"},
+                },
+                "required": ["metric", "comment"],
+            },
+        }
+        required = ["anchor_analysis", "insights"]
+    return {"type": "object", "additionalProperties": False,
+            "properties": props, "required": required}
 
 
 # Compatibilidad estricta: el schema de emisión vive en una sola función.
@@ -271,9 +274,11 @@ def run(month: str, executor=None, model: str | None = None,
     out = llm.chat_json(
         [{"role": "system", "content": system},
          {"role": "user", "content":
+          # Orden: estable primero (catálogo, tabla), variable al final
+          # (llamadas). El caché solo acierta el prefijo idéntico.
+          f"{catalogo_txt}\n{tabla}\n"
           f"Con los datos ya consultados para {month}, emite EXACTAMENTE "
           f"{N_INSIGHTS} insights. Herramientas usadas: {llamadas}.\n"
-          f"{catalogo_txt}\n{tabla}\n"
           "En evidencia cita SOLO {señal} con nombres de esa lista "
           "(sin valor: los números los pone el sistema). Si te falta un "
           "dato, explora otro ángulo real en vez de inventarlo."}],
@@ -289,19 +294,22 @@ def run(month: str, executor=None, model: str | None = None,
         resumen_mal = [f"{f['kind']}: {f['motivo']}" for f in fallidos]
         if mal_anchors:
             resumen_mal.append(f"anchor_analysis: {mal_anchors}")
+        repite_anchors = (
+            " Además repite anchor_analysis con los 4 comentarios "
+            f"({', '.join(ANCHOR_METRICS)}) corregidos."
+            if mal_anchors else "")
         out2 = llm.chat_json(
             [{"role": "system", "content": system},
              {"role": "user", "content":
+              f"{catalogo_txt}\n{tabla}\n"
               f"Vas bien: estos {len(validos)} YA quedaron y NO los repitas "
               f"ni regeneres: {resumen_ok}. Estos están mal, cada uno con "
-              f"su motivo: {resumen_mal}.\n{catalogo_txt}\n{tabla}\nGenera "
+              f"su motivo: {resumen_mal}.\nGenera "
               f"EXACTAMENTE {faltan} insights NUEVOS (kinds distintos a los "
               "válidos) que corrijan o reemplacen los fallidos, citando "
-              "señales de esa lista (sin valor). Además repite "
-              "anchor_analysis con los 4 comentarios "
-              f"({', '.join(ANCHOR_METRICS)}) corregidos si estaban mal o "
-              "idénticos si estaban bien."}],
-            insight_schema(faltan), modelo)
+              f"señales de esa lista (sin valor).{repite_anchors}"}],
+            insight_schema(faltan, include_anchors=bool(mal_anchors)),
+            modelo)
         validos2, fallidos2 = _partir(
             out2.get("insights", []), month, company_id, len(meses),
             catalogo, valores, unidades, {v["kind"] for v in validos})

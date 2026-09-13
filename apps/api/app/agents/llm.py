@@ -189,7 +189,8 @@ def _responses_loop(system: str, history: list[dict], tools: list[ToolDef],
                 audit.append({"tool": it.name, "args": args,
                               "ms": int((time.time() - t0) * 1000)})
                 entrada.append({"type": "function_call_output",
-                                "call_id": it.call_id, "output": _json(out)})
+                                "call_id": it.call_id,
+                                "output": _recorta(_json(out))})
             except Exception as e:
                 audit.append({"tool": it.name, "args": args,
                               "ms": int((time.time() - t0) * 1000),
@@ -238,7 +239,7 @@ def run_tool_loop(system: str, history: list[dict], tools: list[ToolDef],
                 audit.append({"tool": tc.name, "args": tc.arguments,
                               "ms": int((time.time() - t0) * 1000)})
                 msgs.append({"role": "tool", "tool_call_id": tc.id,
-                             "content": _json(out)})
+                             "content": _recorta(_json(out))})
             except Exception as e:
                 audit.append({"tool": tc.name, "args": tc.arguments,
                               "ms": int((time.time() - t0) * 1000),
@@ -260,3 +261,19 @@ def _json(obj) -> str:
             return [_d(v) for v in o]
         return o
     return json.dumps(_d(obj), ensure_ascii=False, default=str)
+
+
+#: Tope de caracteres por resultado de tool EN EL CONTEXTO (la auditoría
+#: guarda completo para debug). Los outputs grandes (signals, merchants)
+#: se reenvían en cada iteración del loop: sin tope, el input crece
+#: ~output × iteraciones. El modelo puede pedir el dato filtrado si
+#: necesita más (otra llamada con mejor args).
+MAX_TOOL_CHARS = 4000
+
+
+def _recorta(texto: str) -> str:
+    if len(texto) <= MAX_TOOL_CHARS:
+        return texto
+    return (texto[:MAX_TOOL_CHARS]
+            + f"\n...[truncado: {len(texto)} chars total; "
+            "pide el dato filtrado con otra llamada]")

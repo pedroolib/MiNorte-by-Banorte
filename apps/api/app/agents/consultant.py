@@ -50,7 +50,8 @@ Reglas duras:
   Profundiza cuando (a) pregunten un quién/cuál específico, (b) un hint_drill
   lo sugiera, o (c) el top agregado no explique el grueso del rubro.
   Prioriza completitud sobre velocidad: mejor 2 llamadas con el dato que
-  una respuesta sin él.
+  una respuesta sin él. Pero si ya tienes los datos para responder, responde:
+  no explores por explorar (cada llamada reenvía toda la conversación).
 -   Lista vacía de un tool = filtros muy estrictos, NO ausencia de datos:
   reintenta sin rubro o con limit mayor antes de decir "no hay".
   Preguntas de cobertura se responden del rango con datos (ver contexto),
@@ -128,7 +129,7 @@ def ask(texto: str, history: list[dict] | None = None,
         SYSTEM + _contexto() + _perfil_block(perfil),
         (history or []) + [{"role": "user", "content": texto}],
         tool_defs(), executor or T.execute,
-        model or llm.tool_model(), temperature=0.2)
+        model or llm.tool_model(), temperature=0.2, max_steps=5)
     llamadas = [{"tool": a["tool"], "args": a.get("args", {})} for a in audit]
     ex = executor or T.execute
     resultados = _releer_tools(audit, ex)

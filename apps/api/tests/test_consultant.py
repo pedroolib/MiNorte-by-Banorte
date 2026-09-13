@@ -285,3 +285,16 @@ def test_correccion_determinista_sin_llm():
     out = C._corregir_cifras("cuánto", "Total $99,000.00", res, "m")
     assert out == "Total $98,500.00"  # sin gastar LLM
     assert C._formatear_como(98500.0, "99,000.00") == "98,500.00"
+
+
+def test_loop_recorta_outputs_grandes(monkeypatch):
+    import app.agents.llm as L
+    assert L._recorta("x" * 5000).endswith("otra llamada]")
+    assert L._recorta("corto") == "corto"
+    assert L.MAX_TOOL_CHARS == 4000
+
+
+def test_historial_ventana_seis():
+    import inspect
+    import app.repositories.chat_repo as R
+    assert inspect.signature(R.historial).parameters["limite"].default == 6
