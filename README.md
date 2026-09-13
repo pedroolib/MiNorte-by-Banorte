@@ -29,6 +29,14 @@ Next.js 14 → FastAPI → Supabase Postgres
 
 **Regla de oro:** *el software determina qué es verdad; la IA determina cómo explicarlo.*
 
+## 📸 Producto
+
+![Asesor con gráficas generativas](docs/screenshot-2026-09-13_06-17-58.png)
+*El Asesor responde con análisis y tarjetas visuales: dona de ingresos vs gastos, efectivo, CxC y DSO.*
+
+![Semana financiera](docs/screenshot-2026-09-13_06-18-46.png)
+*Tu semana financiera: acciones pendientes (facturas, cobranza, ISR) + descubrimientos con gráficas.*
+
 ## 🚀 Quickstart
 
 ```bash
