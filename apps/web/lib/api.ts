@@ -227,9 +227,11 @@ export async function fetchGenDashboard(): Promise<GenDashboard> {
             amount: item.amount,
             type: item.type,
           })),
+          footnote: "Tus movimientos más recientes, del más nuevo al más viejo.",
         }),
         card("receivables", "timeline_list", {
           items: dashboard.receivables.items.slice(0, 6),
+          footnote: "Facturas que tus clientes todavía no te pagan.",
         }),
       ],
     };
