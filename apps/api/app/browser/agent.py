@@ -268,6 +268,57 @@ def _looks_like_xml(filename: str, head: bytes) -> bool:
     return b"<cfdi:Comprobante" in head or b"<?xml" in head[:100]
 
 
+async def _select_custom_dropdown(page, trigger, value: str, ref: str) -> str:
+    """Dropdown personalizado (no `<select>`): clic real para abrir +
+    clic real sobre la opción cuyo texto visible contiene `value`
+    (case-insensitive — ej. value="601" matchea "601 General de Ley
+    Personas Morales"). Si no hay match, falla explícito: nunca adivina
+    "la más parecida"."""
+    await trigger.click(timeout=8000)
+    candidatos = page.locator(
+        "ul.dropdown-menu a, ul.dropdown-menu li, ul.dropdown-menu button, "
+        "[role=listbox] [role=option], [role=menu] [role=menuitem], "
+        "ul[role=listbox] li, .select2-results__option, .choices__item"
+    )
+    # El menú puede tardar un instante en renderizarse/animarse tras el
+    # clic (visto en vivo: is_visible() justo después del clic no veía
+    # nada todavía) — esperar a que aparezca el primero antes de buscar.
+    try:
+        await candidatos.first.wait_for(state="visible", timeout=3000)
+    except Exception:
+        pass
+    n = await candidatos.count()
+    objetivo = value.strip().lower()
+    for i in range(min(n, 200)):
+        opt = candidatos.nth(i)
+        try:
+            if not await opt.is_visible():
+                continue
+            texto = ((await opt.inner_text()) or "").strip()
+        except Exception:
+            continue
+        if texto and objetivo and objetivo in texto.lower():
+            await opt.click(timeout=5000)
+            return f"select[{ref}] = {value!r} (dropdown personalizado: {texto!r})"
+
+    # Último recurso: el portal no sigue ninguno de los patrones comunes
+    # de arriba (UI propia, sin clases/roles reconocibles) — buscar el
+    # texto en cualquier parte visible de la página, no solo dentro de un
+    # contenedor de menú, y darle clic real.
+    try:
+        libre = page.get_by_text(value, exact=False).first
+        await libre.wait_for(state="visible", timeout=2000)
+        texto = ((await libre.inner_text()) or "").strip()
+        await libre.click(timeout=5000)
+        return f"select[{ref}] = {value!r} (dropdown personalizado, texto libre: {texto!r})"
+    except Exception:
+        pass
+
+    raise BrowserAgentError(
+        f"select[{ref}]: dropdown personalizado sin opción visible que "
+        f"contenga {value!r}")
+
+
 async def _apply(sess: "ActiveSession", decision: dict) -> str:
     page = sess.page
     action = decision["action"]
@@ -302,8 +353,19 @@ async def _apply(sess: "ActiveSession", decision: dict) -> str:
     if action == "select":
         if locator is None:
             raise BrowserAgentError("select sin ref")
-        await locator.select_option(value, timeout=8000)
-        return f"select[{ref}] = {value!r}"
+        try:
+            await locator.select_option(value, timeout=8000)
+            return f"select[{ref}] = {value!r}"
+        except Exception as e:
+            if "is not a <select> element" not in str(e):
+                raise
+            # Muchos portales reales (Bootstrap/Select2/Choices.js) usan un
+            # botón data-toggle=dropdown + lista de opciones en vez de un
+            # <select> nativo — visto en vivo en "Régimen fiscal". Mismo
+            # principio que el resto del agente: clic real para abrir, clic
+            # real sobre la opción cuyo texto contiene `value` (nunca
+            # coordenadas), nunca elegir "la más parecida" a ciegas.
+            return await _select_custom_dropdown(page, locator, value or "", ref)
     if action == "scroll":
         await page.mouse.wheel(0, 800)
         return "scroll"
