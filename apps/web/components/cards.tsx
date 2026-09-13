@@ -60,6 +60,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { cn } from "@/lib/utils";
 import {
   Empty as EmptyState,
   EmptyHeader,
@@ -219,6 +220,13 @@ export function DataTable({
 
 /* ---------------- hero_number ---------------- */
 
+/** Parte "$114,860.63 MXN" para poder jerarquizar los dígitos. */
+function partirMonto(value: string) {
+  const m = /^(-?\$?)([\d,]+)(\.\d+)?\s*([A-Za-z]{2,4})?$/.exec(value.trim());
+  if (!m) return null;
+  return { signo: m[1] ?? "", enteros: m[2], decimales: m[3] ?? "", moneda: m[4] ?? "" };
+}
+
 export function HeroNumber({
   label,
   sublabel,
@@ -234,29 +242,74 @@ export function HeroNumber({
 }) {
   const TrendIcon =
     tone === "positive" ? ArrowUpRight : tone === "negative" ? ArrowDownRight : null;
+  // Ámbar = ojo aquí; rojo = duele; verde = a favor.
+  const acento =
+    tone === "positive" ? "#10b981" : tone === "negative" ? "#eb0029" : "#f59e0b";
+  const partes = partirMonto(value);
+
   return (
-    <Card>
-      <CardHeader className="pb-2">
-        <CardTitle className="text-sm font-medium">{label}</CardTitle>
-        <CardDescription>{sublabel}</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <p className="text-4xl font-bold tracking-tight">{value}</p>
-        {delta ? (
-          <div className="mt-2">
+    <Card className="relative overflow-hidden">
+      {/* filete superior y halo: el color dice el tono sin gritar */}
+      <span
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-x-0 top-0 h-px"
+        style={{ background: `linear-gradient(90deg, ${acento}, transparent 70%)` }}
+      />
+      <span
+        aria-hidden="true"
+        className="pointer-events-none absolute -right-16 -top-16 size-48 rounded-full blur-3xl opacity-[0.13]"
+        style={{ background: acento }}
+      />
+
+      <CardContent className="relative flex h-full flex-col gap-4 p-6">
+        <div className="flex items-start justify-between gap-3">
+          <p className="text-sm font-semibold text-muted-foreground">{label}</p>
+          {delta ? (
             <Badge
               variant={
                 tone === "positive"
                   ? "success"
                   : tone === "negative"
                     ? "destructive"
-                    : "secondary"
+                    : "warning"
               }
+              className="shrink-0"
             >
               {TrendIcon ? <TrendIcon className="size-3" /> : null}
               {delta}
             </Badge>
-          </div>
+          ) : null}
+        </div>
+
+        <p className="flex items-baseline gap-1 tabular-nums">
+          {partes ? (
+            <>
+              <span className="text-2xl font-bold" style={{ color: acento }}>
+                {partes.signo}
+              </span>
+              <span className="text-[2.75rem] font-extrabold leading-none tracking-tight">
+                {partes.enteros}
+              </span>
+              {partes.decimales ? (
+                <span className="text-xl font-bold text-muted-foreground">
+                  {partes.decimales}
+                </span>
+              ) : null}
+              {partes.moneda ? (
+                <span className="ml-1 text-xs font-bold uppercase tracking-widest text-muted-foreground">
+                  {partes.moneda}
+                </span>
+              ) : null}
+            </>
+          ) : (
+            <span className="text-4xl font-extrabold tracking-tight">{value}</span>
+          )}
+        </p>
+
+        {sublabel ? (
+          <p className="mt-auto border-t border-border/70 pt-3 text-sm leading-relaxed text-muted-foreground">
+            {sublabel}
+          </p>
         ) : null}
       </CardContent>
     </Card>
@@ -578,7 +631,16 @@ export function ActionCard({
             </AlertDescription>
           </div>
           {visual ? (
-            <span className="grid size-24 shrink-0 place-items-center rounded-xl bg-primary/10 text-primary">
+            <span
+              className={cn(
+                "grid size-24 shrink-0 place-items-center rounded-xl",
+                tone === "urgent"
+                  ? "bg-primary/10 text-primary"
+                  : tone === "watch"
+                    ? "bg-amber-500/10 text-amber-500"
+                    : "bg-muted text-muted-foreground",
+              )}
+            >
               {visual}
             </span>
           ) : null}
@@ -966,18 +1028,32 @@ function ResolutionCard({
   text,
   count,
   total,
+  tone = "urgent",
   onAction,
 }: {
   icon: React.ReactNode;
   text: string;
   count: number;
   total: string;
+  /** ámbar = papeleo pendiente · rojo = dinero que no ha entrado */
+  tone?: "urgent" | "watch";
   onAction?: () => void;
 }) {
+  const ambar = tone === "watch";
   return (
-    <Card>
+    <Card
+      className={cn(
+        "border-l-4",
+        ambar ? "border-l-amber-500" : "border-l-primary",
+      )}
+    >
       <CardContent className="flex items-center gap-3 pt-6 text-sm">
-        <span className="grid size-10 shrink-0 place-items-center rounded-full bg-primary/10 text-primary">
+        <span
+          className={cn(
+            "grid size-10 shrink-0 place-items-center rounded-full",
+            ambar ? "bg-amber-500/10 text-amber-500" : "bg-primary/10 text-primary",
+          )}
+        >
           {icon}
         </span>
         <p className="flex-1">
@@ -1021,6 +1097,7 @@ export function ReceiptsResolution({
   return (
     <ResolutionCard
       icon={<ReceiptText className="size-5" />}
+      tone="watch"
       text="gastos necesitan factura"
       count={count}
       total={total}
