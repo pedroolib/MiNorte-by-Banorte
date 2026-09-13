@@ -67,6 +67,21 @@ def upsert_contact(sb: Any, company_id: str, customer_rfc: str,
     return get_contact(sb, company_id, rfc, row["customer_name"]) or row
 
 
+def clear_email(sb: Any, company_id: str, customer_rfc: str,
+                customer_name: str = "") -> dict | None:
+    """Borra el email del contacto (tupla rfc+nombre por XAXX compartido).
+    Conserva la fila del directorio; devuelve el contacto o None."""
+    row = get_contact(sb, company_id, customer_rfc, customer_name)
+    if not row:
+        return None
+    (sb.table("customer_contacts").update(
+        {"email": None, "updated_at": datetime.now(timezone.utc).isoformat()})
+     .eq("company_id", company_id)
+     .eq("customer_rfc", row["customer_rfc"])
+     .eq("customer_name", row.get("customer_name") or "").execute())
+    return get_contact(sb, company_id, customer_rfc, customer_name)
+
+
 def seed_skeleton(sb: Any, company_id: str, clientes: list[dict]) -> int:
     """Esqueleto del directorio: nombre+RFC sin email (día-1 realista).
 

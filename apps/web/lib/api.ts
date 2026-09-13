@@ -92,11 +92,24 @@ export const fetchDrafts = () =>
 export const fetchContacts = () =>
   get<{
     contacts: ContactItem[];
-    cobertura: { receivable_id: string; customer_rfc: string; tiene_email: boolean }[];
+    cobertura: { receivable_id: string; customer_rfc: string; customer_name: string; tiene_email: boolean }[];
   }>("/api/collections/contacts");
 
-export const saveContact = (customer_rfc: string, email: string) =>
-  post<ContactItem>("/api/collections/contacts", { customer_rfc, email });
+export const saveContact = (customer_rfc: string, email: string, customer_name = "") =>
+  post<ContactItem>("/api/collections/contacts", { customer_rfc, email, customer_name });
+
+async function del<T>(path: string, body: unknown): Promise<T> {
+  const r = await fetch(`${API}${path}`, {
+    method: "DELETE",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!r.ok) throw new Error(`API ${path}: ${r.status}`);
+  return r.json() as Promise<T>;
+}
+
+export const deleteContact = (customer_rfc: string, customer_name = "") =>
+  del<ContactItem>("/api/collections/contacts", { customer_rfc, customer_name });
 
 export const sendReminders = (receivable_ids: string[], confirm: boolean, force = false) =>
   post<{ provider: string; resumen: Record<string, number>; items: SendItem[] }>(

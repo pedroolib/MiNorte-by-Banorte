@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
+  deleteContact,
   fetchContacts,
   fetchDrafts,
   saveContact,
@@ -32,6 +33,26 @@ export default function Cobranza() {
   const rfcDe = (rid: string) =>
     contacts.data?.cobertura.find((c) => c.receivable_id === rid)
       ?.customer_rfc ?? "";
+  const nombreDe = (rid: string) =>
+    contacts.data?.cobertura.find((c) => c.receivable_id === rid)
+      ?.customer_name ?? "";
+
+  async function borrar(rid: string) {
+    setBusy(true);
+    setMsg(null);
+    try {
+      await deleteContact(rfcDe(rid), nombreDe(rid));
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: ["drafts"] }),
+        qc.invalidateQueries({ queryKey: ["contacts"] }),
+      ]);
+      setMsg("correo borrado");
+    } catch (e) {
+      setMsg(String(e));
+    } finally {
+      setBusy(false);
+    }
+  }
 
   async function guardar(rid: string) {
     const email = (emails[rid] ?? "").trim();
@@ -42,7 +63,7 @@ export default function Cobranza() {
     setBusy(true);
     setMsg(null);
     try {
-      await saveContact(rfcDe(rid), email);
+      await saveContact(rfcDe(rid), email, nombreDe(rid));
       await Promise.all([
         qc.invalidateQueries({ queryKey: ["drafts"] }),
         qc.invalidateQueries({ queryKey: ["contacts"] }),
@@ -126,7 +147,12 @@ export default function Cobranza() {
               </td>
               <td>
                 {d.contact_status === "listo" ? (
-                  <span>{d.to}</span>
+                  <span>
+                    <span>{d.to}</span>{" "}
+                    <button disabled={busy} onClick={() => borrar(d.receivable_id)} title="Borrar correo">
+                      ✕
+                    </button>
+                  </span>
                 ) : (
                   <span>
                     <span style={{ color: "red" }}>falta_email</span>

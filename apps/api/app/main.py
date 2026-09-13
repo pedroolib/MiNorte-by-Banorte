@@ -473,6 +473,20 @@ def api_collections_contacts_upsert(body: dict):
     return row
 
 
+@app.delete("/api/collections/contacts")
+def api_collections_contacts_delete(body: dict):
+    """Borra el email del contacto (tupla rfc+nombre); conserva la fila."""
+    from fastapi import HTTPException
+
+    sb = _sb_or_503()
+    company_id = get_current_company()
+    row = col.clear_email(sb, company_id, body.get("customer_rfc", ""),
+                          body.get("customer_name", ""))
+    if row is None:
+        raise HTTPException(404, "contacto no existe")
+    return row
+
+
 @app.post("/api/collections/send")
 def api_collections_send(body: dict):
     """Envía recordatorios. Parcial por diseño: lo bloqueado no frena el lote.

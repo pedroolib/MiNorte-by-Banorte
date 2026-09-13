@@ -11,6 +11,7 @@ import {
   fetchContacts,
   fetchDrafts,
   fetchReceivables,
+  deleteContact,
   saveContact,
   sendReminders,
 } from "@/lib/api";
@@ -73,6 +74,25 @@ export function CollectionsPanel({ onClose }: { onClose: () => void }) {
 
   const rfcDe = (rid: string) =>
     contacts.data?.cobertura.find((c) => c.receivable_id === rid)?.customer_rfc ?? "";
+  const nombreDe = (rid: string) =>
+    porId.get(rid)?.nombre ??
+    contacts.data?.cobertura.find((c) => c.receivable_id === rid)?.customer_name ?? "";
+
+  async function borrarEmail(rid: string) {
+    setBusy(true);
+    setError(null);
+    try {
+      await deleteContact(rfcDe(rid), nombreDe(rid));
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: ["drafts"] }),
+        qc.invalidateQueries({ queryKey: ["contacts"] }),
+      ]);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "No se pudo borrar el correo");
+    } finally {
+      setBusy(false);
+    }
+  }
 
   const elegidas = items.filter((d) => sel[d.receivable_id]);
   const hubo24h = Object.values(result ?? {}).some(
@@ -85,7 +105,7 @@ export function CollectionsPanel({ onClose }: { onClose: () => void }) {
     setBusy(true);
     setError(null);
     try {
-      await saveContact(rfcDe(rid), email);
+      await saveContact(rfcDe(rid), email, nombreDe(rid));
       await Promise.all([
         qc.invalidateQueries({ queryKey: ["drafts"] }),
         qc.invalidateQueries({ queryKey: ["contacts"] }),
@@ -199,7 +219,19 @@ export function CollectionsPanel({ onClose }: { onClose: () => void }) {
                     </Button>
                   </div>
                 ) : (
-                  <span className="text-xs text-muted-foreground">{d.to}</span>
+                  <span className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <span>{d.to}</span>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      disabled={busy}
+                      onClick={() => borrarEmail(d.receivable_id)}
+                      aria-label={`Borrar correo de ${meta?.nombre ?? d.receivable_id}`}
+                      title="Borrar correo"
+                    >
+                      <X className="size-3.5" />
+                    </Button>
+                  </span>
                 )}
               </li>
             );
