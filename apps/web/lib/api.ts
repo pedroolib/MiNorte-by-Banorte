@@ -174,7 +174,7 @@ export async function fetchGenDashboard(): Promise<GenDashboard> {
         },
         {
           metric: "cash",
-          label: "Efectivo disponible",
+          label: "Balance disponible",
           value: Number(dashboard.summary.efectivo),
           trend: null,
           analyst_comment: `${dashboard.signals.runway_dias} días estimados de caja al ritmo actual.`,
@@ -213,7 +213,7 @@ export async function fetchGenDashboard(): Promise<GenDashboard> {
           center_value: money(Number(dashboard.summary.efectivo) + Number(dashboard.summary.cuentas_por_cobrar)),
           center_label: "Caja + por cobrar",
           segments: [
-            { label: "Efectivo", value: Number(dashboard.summary.efectivo) },
+            { label: "Balance", value: Number(dashboard.summary.efectivo) },
             { label: "Por cobrar", value: Number(dashboard.summary.cuentas_por_cobrar) },
           ],
           footnote: "Composición de los recursos que pueden convertirse en liquidez.",

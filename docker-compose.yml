@@ -22,5 +22,6 @@ services:
       - ./apps/web/app:/app/app
       - ./apps/web/components:/app/components
       - ./apps/web/lib:/app/lib
+      - ./apps/web/public:/app/public
     depends_on:
       - api

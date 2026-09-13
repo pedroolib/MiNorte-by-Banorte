@@ -25,7 +25,7 @@ from app.config import get_settings
 ANCHOR_DEFS = (
     ("revenue", "Ventas", "ventas"),
     ("profit", "Utilidad", "utilidad"),
-    ("cash", "Efectivo", "efectivo"),
+    ("cash", "Balance", "efectivo"),
     ("estimated_tax", "Impuesto estimado", "isr_estimado"),
 )
 
