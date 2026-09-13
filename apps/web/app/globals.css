@@ -73,12 +73,12 @@ html.theme-transition *,
 html.theme-transition *::before,
 html.theme-transition *::after {
   transition:
-    background-color 360ms cubic-bezier(0.22, 1, 0.36, 1),
-    border-color 360ms cubic-bezier(0.22, 1, 0.36, 1),
-    color 280ms ease,
-    fill 280ms ease,
-    stroke 280ms ease,
-    box-shadow 360ms cubic-bezier(0.22, 1, 0.36, 1) !important;
+    background-color 180ms cubic-bezier(0.22, 1, 0.36, 1),
+    border-color 180ms cubic-bezier(0.22, 1, 0.36, 1),
+    color 160ms ease,
+    fill 160ms ease,
+    stroke 160ms ease,
+    box-shadow 180ms cubic-bezier(0.22, 1, 0.36, 1) !important;
 }
 
 @media (prefers-reduced-motion: reduce) {
