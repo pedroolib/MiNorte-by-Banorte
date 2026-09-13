@@ -215,6 +215,116 @@ def test_snapshot_excluye_elementos_tapados_por_un_modal():
     assert "EMITIR FACTURA" not in labels  # tapado por el modal: no se ofrece
 
 
+# Patrón real: "Régimen fiscal" en un portal real (Wansoft) no es un
+# <select> nativo sino un botón data-toggle=dropdown + <ul> de opciones
+# (Bootstrap) -- select_option truena con "Element is not a <select>
+# element" y la sesión completa termina en fallida a medio flujo.
+CUSTOM_DROPDOWN_HTML = """
+<html><body>
+  <button type="button" data-toggle="dropdown" data-id="receiverFiscalRegime"
+    title="601 General de Ley Personas Morales">601 General de Ley Personas Morales</button>
+  <ul class="dropdown-menu">
+    <li><a href="#">601 General de Ley Personas Morales</a></li>
+    <li><a href="#">616 Sin obligaciones fiscales</a></li>
+  </ul>
+</body></html>
+"""
+CUSTOM_DROPDOWN_URL = "data:text/html;charset=utf-8," + quote(CUSTOM_DROPDOWN_HTML)
+
+
+def test_select_cae_a_dropdown_personalizado_cuando_no_es_select_nativo():
+    """Regresión del bug real: select_option truena en un botón
+    data-toggle=dropdown; action=select debe caer a clic-abrir + clic en
+    la opción cuyo texto contiene el value, no reventar la sesión."""
+    async def run():
+        from playwright.async_api import async_playwright
+        pw = await async_playwright().start()
+        browser = await pw.chromium.launch(headless=True, args=["--no-sandbox", "--disable-dev-shm-usage"])
+        page = await browser.new_page()
+        await page.goto(CUSTOM_DROPDOWN_URL, wait_until="domcontentloaded")
+        els = await bagent._snapshot(page)
+        ref = next(e["ref"] for e in els if e["tag"] == "button")
+        sess = bagent.ActiveSession(id="t-dropdown", portal_url=CUSTOM_DROPDOWN_URL,
+                                    invoice_data={}, playwright=pw, browser=browser, page=page)
+        resultado = await bagent._apply(
+            sess, {"action": "select", "ref": ref, "value": "616"})
+        await browser.close()
+        await pw.stop()
+        return resultado
+
+    resultado = asyncio.run(run())
+    assert "616" in resultado
+
+
+def test_select_dropdown_personalizado_sin_match_falla_explicito():
+    """Si ninguna opción visible contiene el value, debe fallar claro en
+    vez de adivinar 'la más parecida' -- mismo principio de nunca
+    inventar datos que rige el resto del agente."""
+    async def run():
+        from playwright.async_api import async_playwright
+        pw = await async_playwright().start()
+        browser = await pw.chromium.launch(headless=True, args=["--no-sandbox", "--disable-dev-shm-usage"])
+        page = await browser.new_page()
+        await page.goto(CUSTOM_DROPDOWN_URL, wait_until="domcontentloaded")
+        els = await bagent._snapshot(page)
+        ref = next(e["ref"] for e in els if e["tag"] == "button")
+        sess = bagent.ActiveSession(id="t-dropdown-2", portal_url=CUSTOM_DROPDOWN_URL,
+                                    invoice_data={}, playwright=pw, browser=browser, page=page)
+        try:
+            await bagent._apply(sess, {"action": "select", "ref": ref, "value": "999"})
+            ok = False
+        except bagent.BrowserAgentError:
+            ok = True
+        await browser.close()
+        await pw.stop()
+        return ok
+
+    assert asyncio.run(run()) is True
+
+
+# Portal con UI propia: ni <select> nativo ni ningún patrón común
+# (dropdown-menu/role=listbox/select2/choices) -- el único recurso real
+# es buscar el texto visible en cualquier parte de la página.
+FREEFORM_DROPDOWN_HTML = """
+<html><body>
+  <div id="trigger" role="button" data-id="receiverFiscalRegime" tabindex="0"
+    onclick="document.getElementById('opts').style.display='block'"
+    style="border:1px solid #ccc; padding:4px; width:200px;">601 General</div>
+  <div id="opts" style="display:none">
+    <span onclick="document.getElementById('trigger').innerText=this.innerText"
+      style="display:block; cursor:pointer;">601 General de Ley Personas Morales</span>
+    <span onclick="document.getElementById('trigger').innerText=this.innerText"
+      style="display:block; cursor:pointer;">616 Sin obligaciones fiscales</span>
+  </div>
+</body></html>
+"""
+FREEFORM_DROPDOWN_URL = "data:text/html;charset=utf-8," + quote(FREEFORM_DROPDOWN_HTML)
+
+
+def test_select_cae_a_texto_libre_cuando_no_hay_patron_reconocible():
+    """Regresión del bug real: un portal puede usar una UI propia que no
+    sigue ningún patrón común de dropdown -- último recurso es buscar el
+    texto visible en cualquier parte de la página y darle clic real."""
+    async def run():
+        from playwright.async_api import async_playwright
+        pw = await async_playwright().start()
+        browser = await pw.chromium.launch(headless=True, args=["--no-sandbox", "--disable-dev-shm-usage"])
+        page = await browser.new_page()
+        await page.goto(FREEFORM_DROPDOWN_URL, wait_until="domcontentloaded")
+        els = await bagent._snapshot(page)
+        ref = next(e["ref"] for e in els if e["tag"] == "div")
+        sess = bagent.ActiveSession(id="t-dropdown-3", portal_url=FREEFORM_DROPDOWN_URL,
+                                    invoice_data={}, playwright=pw, browser=browser, page=page)
+        resultado = await bagent._apply(
+            sess, {"action": "select", "ref": ref, "value": "616"})
+        await browser.close()
+        await pw.stop()
+        return resultado
+
+    resultado = asyncio.run(run())
+    assert "616" in resultado
+
+
 def test_browser_agent_se_detiene_antes_de_la_accion_irreversible(monkeypatch):
     """El agente llena el RFC real y se detiene ANTES de dar 'Enviar
     factura' (spec #19: confirmación humana antes de lo irreversible)."""
@@ -542,6 +652,61 @@ def test_upload_extrae_y_propone_candidatos(client, monkeypatch):
     body = r.json()
     assert body["document"]["extraction"]["comercio"] == "ALSUPER TOREO"
     assert "candidates" in body
+
+
+def test_extract_receipt_normaliza_string_null_a_none(monkeypatch):
+    """Regresión del bug real: gpt-4o-mini en modo JSON estricto a veces
+    devuelve el STRING "null" en vez del null real del schema para un
+    campo nullable. Ese string es verdadero en Python, así que
+    `if not extraction.get("portal_facturacion")` -- el gate real del
+    fallback a QR -- se quedaba deshabilitado en silencio."""
+    import app.integrations.invoicing.vision as vision
+
+    def fake_chat_json(messages, schema, model=None):
+        return {
+            "comercio": "PECKERS ZONA TEC", "rfc_comercio": "NULL",
+            "total": "219.00", "fecha": "2026-09-08T14:25:24",
+            "folio": "45579", "portal_facturacion": "null",
+            "confianza": "alta", "campos_no_legibles": [],
+        }
+
+    monkeypatch.setattr(vision.llm, "chat_json", fake_chat_json)
+    out = vision.extract_receipt(b"fake-bytes", "image/jpeg")
+
+    assert out["portal_facturacion"] is None
+    assert out["rfc_comercio"] is None
+    assert out["comercio"] == "PECKERS ZONA TEC"  # un valor real no se toca
+
+
+def test_upload_recae_en_qr_cuando_vision_devuelve_null_de_texto(client, monkeypatch):
+    """Integración completa: Vision devuelve "null" (string) para
+    portal_facturacion -- con la normalización, el gate del fallback a QR
+    debe activarse igual que si hubiera sido None real."""
+    import qrcode
+    import io
+
+    _, c = client
+
+    def fake_chat_json(messages, schema, model=None):
+        return {
+            "comercio": "ALSUPER TOREO", "rfc_comercio": None,
+            "total": "163.00", "fecha": "2026-09-06T09:59:00",
+            "folio": "0022936", "portal_facturacion": "null",
+            "confianza": "alta", "campos_no_legibles": ["portal_facturacion"],
+        }
+
+    monkeypatch.setattr("app.integrations.invoicing.vision.llm.chat_json", fake_chat_json)
+
+    img = qrcode.make("alsuper.com/facturacion")
+    buf = io.BytesIO()
+    img.save(buf, format="PNG")
+
+    r = c.post("/api/tickets/upload",
+              files={"file": ("ticket.jpg", buf.getvalue(), "image/png")})
+    assert r.status_code == 200, r.text
+    extraction = r.json()["document"]["extraction"]
+    assert extraction["portal_facturacion"] == "alsuper.com/facturacion"
+    assert "portal_facturacion" not in extraction["campos_no_legibles"]
 
 
 def test_upload_rechaza_archivo_vacio(client):

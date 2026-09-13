@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   cancelTicket,
@@ -152,7 +153,16 @@ function CameraCapture({ onCapture }: { onCapture: (blob: Blob) => void }) {
 // ---------- Página ----------
 
 export default function Tickets() {
+  return (
+    <Suspense fallback={null}>
+      <TicketsInner />
+    </Suspense>
+  );
+}
+
+function TicketsInner() {
   const qc = useQueryClient();
+  const searchParams = useSearchParams();
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
@@ -161,11 +171,11 @@ export default function Tickets() {
   const [candidates, setCandidates] = useState<MatchCandidate[]>([]);
   const [selectedTxn, setSelectedTxn] = useState<string | "">("");
   const [receptorGenerico, setReceptorGenerico] = useState(false);
-  const [ticketId, setTicketId] = useState<string | null>(null);
-  const [portalUrl, setPortalUrl] = useState("");
+  const [ticketId, setTicketId] = useState<string | null>(() => searchParams.get("ticket"));
+  const [portalUrl, setPortalUrl] = useState(() => searchParams.get("portal") ?? "");
   const [cfdiXml, setCfdiXml] = useState("");
   const [missingValue, setMissingValue] = useState("");
-  const [showBrowser, setShowBrowser] = useState(false);
+  const [showBrowser, setShowBrowser] = useState(() => searchParams.get("show") === "1");
 
   const ticket = useQuery({
     queryKey: ["ticket", ticketId],

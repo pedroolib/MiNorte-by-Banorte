@@ -23,7 +23,13 @@ EXTRACTION_SCHEMA = {
         "portal_facturacion": {"type": ["string", "null"],
                                "description": "URL/dominio del portal de autofacturación si aparece impreso"},
         "confianza": {"type": "string", "enum": ["alta", "media", "baja"]},
-        "campos_no_legibles": {"type": "array", "items": {"type": "string"}},
+        "campos_no_legibles": {
+            "type": "array",
+            "description": "SOLO nombres de los campos de arriba que quedaron null, nunca otro texto del ticket",
+            "items": {"type": "string", "enum": [
+                "comercio", "rfc_comercio", "total", "fecha", "folio", "portal_facturacion",
+            ]},
+        },
     },
     "required": ["comercio", "rfc_comercio", "total", "fecha", "folio",
                  "portal_facturacion", "confianza", "campos_no_legibles"],
@@ -66,6 +72,26 @@ SYSTEM = (
 )
 
 
+NULLABLE_STRING_FIELDS = (
+    "comercio", "rfc_comercio", "total", "fecha", "folio", "portal_facturacion",
+)
+
+
+def _sin_null_de_texto(data: dict) -> dict:
+    """Algunos modelos (visto en vivo con gpt-4o-mini en modo JSON
+    estricto) devuelven el STRING literal "null" en vez del null real del
+    schema para un campo nullable -- en Python ese string es verdadero,
+    así que rompe cualquier `if not extraction.get(campo)` río abajo (ej.
+    el fallback a QR de portal_facturacion quedaba deshabilitado en
+    silencio). Normaliza "null"/""/"none" (cualquier mayúscula) a None."""
+    limpio = dict(data)
+    for campo in NULLABLE_STRING_FIELDS:
+        v = limpio.get(campo)
+        if isinstance(v, str) and v.strip().lower() in ("null", "none", ""):
+            limpio[campo] = None
+    return limpio
+
+
 def extract_receipt(image_bytes: bytes, mime: str = "image/jpeg",
                     model: str | None = None) -> dict:
     """Ticket (bytes de foto) -> dict validable contra ReceiptExtraction.
@@ -75,9 +101,10 @@ def extract_receipt(image_bytes: bytes, mime: str = "image/jpeg",
     if get_settings().GEMINI_API_KEY:
         from app.integrations.invoicing import gemini_llm
 
-        return gemini_llm.chat_json(
+        out = gemini_llm.chat_json(
             SYSTEM, EXTRACTION_SCHEMA, text="Extrae los datos de este ticket.",
             image_bytes=image_bytes, mime=mime, model=model)
+        return _sin_null_de_texto(out)
 
     b64 = base64.b64encode(image_bytes).decode("ascii")
     messages = [
@@ -88,4 +115,5 @@ def extract_receipt(image_bytes: bytes, mime: str = "image/jpeg",
         ]},
     ]
     modelo = model or get_settings().OPENAI_VISION_MODEL
-    return llm.chat_json(messages, EXTRACTION_SCHEMA, model=modelo)
+    out = llm.chat_json(messages, EXTRACTION_SCHEMA, model=modelo)
+    return _sin_null_de_texto(out)

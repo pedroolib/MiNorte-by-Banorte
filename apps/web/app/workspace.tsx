@@ -16,6 +16,7 @@ import { CriticalBar } from "@/components/critical-bar";
 import { InlineAdvice } from "@/components/inline-advice";
 import { Markdown } from "@/components/markdown";
 import { DynamicUI } from "@/components/registry";
+import { TicketResolutionPanel } from "@/components/ticket-resolution-panel";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -327,6 +328,9 @@ function WeeklyView({
         c.component === "receivables_resolution" ? (
           // cobranza tiene backend propio: se opera, no se consulta
           <CollectionsPanel onClose={() => setResolviendo(null)} />
+        ) : c.component === "receipts_resolution" ? (
+          // tickets también tiene backend propio (Vision + Browser Agent)
+          <TicketResolutionPanel onClose={() => setResolviendo(null)} />
         ) : (
           <InlineAdvice
             question={preguntaPara(c.component, c.props)}
