@@ -8,6 +8,7 @@ import {
   ArrowLeft,
   BookmarkPlus,
   Loader2,
+  LogOut,
   MessageCircle,
   Sparkles,
   TriangleAlert,
