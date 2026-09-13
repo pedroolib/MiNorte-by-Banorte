@@ -16,6 +16,8 @@ ESPERADAS = {
     "get_open_receivables", "get_variables_gasto", "evaluar_gasto",
     "get_customer_contact", "prepare_payment_reminder",
     "get_merchants", "get_merchant_detail",
+    "extract_receipt", "match_receipt_to_transaction",
+    "get_fiscal_profile", "prepare_invoice_request",
 }
 
 

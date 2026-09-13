@@ -223,3 +223,101 @@ export interface GenDashboard {
   discovery: GenCard[];
   summary: string;
 }
+
+/** Ticket (spec #3.3 caso 1, TIER 2): foto real -> factura real. */
+
+/** Lo que Vision leyó del ticket. Campo no legible = null (nunca inventado). */
+export interface ReceiptExtraction {
+  comercio: string | null;
+  rfc_comercio: string | null;
+  total: string | null;
+  fecha: string | null;
+  folio: string | null;
+  portal_facturacion: string | null;
+  confianza: "alta" | "media" | "baja";
+  campos_no_legibles: string[];
+}
+
+export interface TicketDocument {
+  id: string;
+  company_id: string;
+  mime: string;
+  extraction: ReceiptExtraction;
+  created_at?: string;
+}
+
+/** Candidato de match ticket<->movimiento (misma fórmula que reconcile.py). */
+export interface MatchCandidate {
+  transaction_id: string;
+  score: string;
+  amount_score: string;
+  date_score: string;
+  merchant_score: string;
+  merchant_name: string;
+  amount: string;
+  date: string;
+}
+
+export type InvoiceRequestStatus =
+  | "borrador"
+  | "listo_para_portal"
+  | "navegando"
+  | "esperando_confirmacion"
+  | "bloqueada_captcha"
+  | "bloqueada_auth"
+  | "bloqueada_datos_faltantes"
+  | "bloqueada_limite_pasos"
+  | "cancelada"
+  | "resuelta"
+  | "fallida";
+
+/** Un paso de la bitácora del Browser Agent (para la UI: "sensación de
+ * que los agentes están trabajando", spec #5). */
+export interface BrowserStep {
+  index: number;
+  url: string;
+  action: {
+    action: string;
+    ref: string | null;
+    value: string | null;
+    missing_field: string | null;
+    reason: string;
+  };
+  result?: string;
+  confirmado_por_humano?: boolean;
+}
+
+/** Elemento real de la página (rol/label/tipo) — nunca coordenadas. */
+export interface PageElement {
+  ref: string;
+  tag: string;
+  role: string;
+  label: string;
+  type: string;
+}
+
+/** Lo pendiente de resolver: una decisión normal (action/ref/reason,
+ * +target si es irreversible), o solo un error si status=fallida. */
+export interface PendingAction {
+  action?: string;
+  ref?: string | null;
+  value?: string | null;
+  missing_field?: string | null;
+  reason?: string;
+  target?: PageElement | null;
+  error?: string;
+}
+
+export interface TicketItem {
+  id: string;
+  company_id: string;
+  document_id: string;
+  transaction_id: string | null;
+  payload: Record<string, string | null>;
+  status: InvoiceRequestStatus;
+  steps: BrowserStep[];
+  pending_action?: PendingAction | null;
+  cfdi_uuid: string | null;
+  created_at?: string;
+  updated_at?: string;
+}

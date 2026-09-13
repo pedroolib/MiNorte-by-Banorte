@@ -36,6 +36,14 @@ class Settings(BaseSettings):
     # API para tool-calling: "chat" (chat/completions) o "responses"
     # (/v1/responses, obligatorio para reasoning que rechaza tools en chat).
     OPENAI_TOOLS_API: str = "chat"
+    # Vision (T-tickets): extracción de fotos de ticket. gpt-4o-mini es el
+    # que se usa también en test_live_openai.py contra la API real.
+    OPENAI_VISION_MODEL: str = "gpt-4o-mini"
+    # Gemini (T-tickets, SOLO Vision + Browser Agent): alternativa a
+    # OpenAI acotada a este flujo — no toca agents/llm.py (compartido con
+    # Consultor/Analista/Diseñador). Vacío = sigue usando OpenAI.
+    GEMINI_API_KEY: str = ""
+    GEMINI_MODEL: str = "gemini-3.6-flash"
     MAIL_PROVIDER: str = "log"  # log | resend
     RESEND_API_KEY: str = ""
     MAIL_FROM: str = ""  # ej. cobranza@tudominio.com (dominio verificado)
