@@ -33,6 +33,9 @@ class Settings(BaseSettings):
     # Modelo para tool-calling (algunos reasoning no aceptan function
     # tools en chat/completions). None = usa FAST_MODEL.
     OPENAI_TOOL_MODEL: str | None = None
+    # API para tool-calling: "chat" (chat/completions) o "responses"
+    # (/v1/responses, obligatorio para reasoning que rechaza tools en chat).
+    OPENAI_TOOLS_API: str = "chat"
     MAIL_PROVIDER: str = "log"  # log | resend
     RESEND_API_KEY: str = ""
     MAIL_FROM: str = ""  # ej. cobranza@tudominio.com (dominio verificado)

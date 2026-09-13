@@ -100,7 +100,8 @@ def tool_defs():
             for t in T.TOOLS if t["name"] in DESIGNER_TOOLS]
 
 
-def _cards_schema(components: list[str], n: int | None = None) -> dict:
+def _cards_schema(components: list[str], n: int | None = None,
+                   min_items: int = 0) -> dict:
     item = {"type": "object",
             "properties": {
                 "insight_id": {"type": "string"},
@@ -109,7 +110,7 @@ def _cards_schema(components: list[str], n: int | None = None) -> dict:
                 "rationale": {"type": "string"}},
             "required": ["insight_id", "component", "props", "rationale"],
             "additionalProperties": False}
-    arr: dict = {"type": "array", "items": item}
+    arr: dict = {"type": "array", "items": item, "minItems": min_items}
     if n is not None:
         arr["minItems"] = n
         arr["maxItems"] = n
@@ -199,7 +200,11 @@ def _checa(valor, spec, ruta: str) -> str | None:
                 and not isinstance(valor, bool)
                 else f"{ruta} debe ser str")
     if spec == _NUM:
-        return None if _es_num(valor) else f"{ruta} debe ser número"
+        # "=ruta" es referencia a tabla de datos: la resuelve el llamador
+        # (extra_check) antes de validar cifras; aquí solo pasa.
+        if isinstance(valor, str) and valor.startswith("="):
+            return None
+        return None if _es_num(valor) else f"{ruta} debe ser número, llegó {valor!r}"
     if isinstance(spec, list):  # [subspec] = lista no vacía
         if not isinstance(valor, list) or not valor:
             return f"{ruta} debe ser lista no vacía"
@@ -265,15 +270,68 @@ def validate_choice(choice: dict, components: list[str]) -> list[str]:
     return errores
 
 
-def _partir(cards: list[dict], components: list[str]):
+def _a_num(v):
+    """Coacciona a número: tolera '$1,200', '45%' y cháchara ('casi 50'
+    -> 50, primer número). Lo no convertible (None) lo rechaza el schema."""
+    if isinstance(v, bool):
+        return None
+    if isinstance(v, (int, float)):
+        return v
+    if isinstance(v, str):
+        m = re.search(r"-?\d[\d,]*\.?\d*", v)
+        if m:
+            try:
+                return float(m.group(0).replace(",", ""))
+            except ValueError:
+                return None
+    return None
+
+
+def _normalizar(choice: dict) -> None:
+    """Convierte strings numéricos a número in-place (el modelo manda
+    '45%' o '$1,200'; el registry ya coacciona, pero el schema pide número).
+    Lo no convertible se deja y la validación lo rechaza con motivo."""
+
+    def _rec(valor, spec):
+        if spec == _NUM:
+            n = _a_num(valor)
+            return n if n is not None else valor
+        if isinstance(spec, list) and isinstance(valor, list):
+            if spec and isinstance(spec[0], dict):
+                # Poda items sin claves requeridas (el modelo a veces omite
+                # una clave; mejor tarjeta incompleta que tarjeta rota).
+                req = set(spec[0])
+                podados = [el for el in valor
+                           if isinstance(el, dict) and req <= set(el)]
+                return [_rec(el, spec[0]) for el in podados] if podados else valor
+            return [_rec(el, spec[0]) for el in valor] if spec else valor
+        if isinstance(spec, dict) and isinstance(valor, dict):
+            return {k: (_rec(v, spec[k]) if k in spec else v)
+                    for k, v in valor.items()}
+        return valor
+
+    comp = choice.get("component")
+    props = choice.get("props")
+    spec = PROPS_SCHEMAS.get(comp, {})
+    if isinstance(props, dict) and spec:
+        for campo, sub in spec.items():
+            if campo in props:
+                props[campo] = _rec(props[campo], sub)
+
+
+def _partir(cards: list[dict], components: list[str],
+            extra_check=None, max_text: int = MAX_TEXT):
     validas, fallidas = [], []
     n_texto = 0
     for c in cards:
+        _normalizar(c)
         errs = validate_choice(c, components)
+        if extra_check:
+            errs = errs + extra_check(c)
         if not errs and c.get("component") == "insight_text":
             n_texto += 1
-            if n_texto > MAX_TEXT:
-                errs = [f"tope de {MAX_TEXT} insight_text excedido: "
+            if n_texto > max_text:
+                errs = [f"tope de {max_text} insight_text excedido: "
                         "usa un componente visual con footnote"]
         if errs:
             fallidas.append({"insight_id": c.get("insight_id", "?"),
@@ -285,12 +343,22 @@ def _partir(cards: list[dict], components: list[str]):
 
 
 def design(insights: list[dict], components: list[str],
-           executor=None, model: str | None = None) -> dict:
+           executor=None, model: str | None = None,
+           brief: str = "", exact: bool = True,
+           partial: bool = False, extra_check=None,
+           max_text: int = MAX_TEXT) -> dict:
     """Insights rankeados -> [{insight_id, component, props, rationale}].
 
     components: catálogo congelado (viene de ui-schema.ts, no hardcodeado).
     Fase 1 (tools): el modelo pide vía get_metric lo que le falte.
     Fase 2 (JSON estricto): elige componentes solo del catálogo.
+    exact=True: 1:1 insight -> tarjeta (lo faltante va al reintento).
+    exact=False (consultant_view): cantidad libre, las que hagan falta.
+    brief: instrucción extra del llamador (p. ej. incluir relacionadas).
+    partial=True: si algo sigue fallando tras el reintento, devuelve las
+    válidas en vez de lanzar (consultant_view prefiere algo a nada).
+    extra_check(choice)->[errores]: validación extra del llamador
+    (p. ej. cifras contra MCP); sus errores van al reintento igual.
     """
     from app.mcp import tools as _T
 
@@ -302,7 +370,8 @@ def design(insights: list[dict], components: list[str],
             "\n".join(f"- {i.get('id')}: [{i.get('severity')}] {i.get('titulo')} | "
                        f"{i.get('detalle')} | evidencia={i.get('payload', {})}"
                        for i in insights) +
-            f"\nComponentes permitidos: {', '.join(sorted(components))}")
+            f"\nComponentes permitidos: {', '.join(sorted(components))}" +
+            (f"\nInstrucción del llamador: {brief}" if brief else ""))
     defs = [llm.ToolDef(t["name"], t["description"], t["parameters"])
             for t in _T.TOOLS if t["name"] in ("metric_catalog", "get_metric")]
     gather, audit, _ = llm.run_tool_loop(
@@ -310,28 +379,42 @@ def design(insights: list[dict], components: list[str],
         "falte para elegir bien. No elijas aún.",
         [{"role": "user", "content": base}], defs,
         executor or _T.execute, gather_modelo, temperature=0.2)
+    def _forma(sub, prof=0) -> str:
+        if isinstance(sub, dict):
+            dentro = ", ".join(f"{k}{_forma(v, prof + 1)}" for k, v in sub.items())
+            return f"{{{dentro}}}" if prof else ""
+        if isinstance(sub, list):
+            return f"[]{_forma(sub[0], prof + 1)}" if sub else "[]"
+        return ""
+
     system2 = (DESIGNER_SYSTEM +
                "\nRespeta estos schemas de props por componente "
                "(listas no vacías, montos como string, "
-               "series/periodos como número). footnote opcional (1 frase) "
+               "series/periodos como número; objetos e items anidados con "
+               "TODAS sus claves). footnote opcional (1 frase) "
                "en multi_ring, bars_total, progress_list, donut_total, "
                "entity_cluster, waterfall, metric_trend y time_series:\n" +
                "\n".join(f"- {c}: requeridas {sorted(PROPS_SCHEMAS[c])}"
+                         + _forma({k: v for k, v in PROPS_SCHEMAS[c].items()
+                                   if isinstance(v, (dict, list))})
                          for c in sorted(components) if c in PROPS_SCHEMAS))
     out = llm.chat_json(
         [{"role": "system", "content": system2},
          {"role": "user", "content": base + "\n\nDatos extra:\n" + gather}],
-        _cards_schema(components), elige_modelo, strict=False)
-    validas, fallidas = _partir(out.get("cards", []), components)
-    # 1:1 insight -> tarjeta: lo no cubierto va al reintento como faltante
-    # (salvo que ya esté fallido por otro motivo: sin duplicar).
-    esperados = [i.get("id") for i in insights]
-    cubiertos = {c["insight_id"] for c in validas}
-    ya_fallidos = {f["insight_id"] for f in fallidas}
-    for iid in esperados:
-        if iid not in cubiertos and iid not in ya_fallidos:
-            fallidas.append({"insight_id": iid, "component": "?",
-                             "motivos": ["sin tarjeta para este insight"]})
+        _cards_schema(components, min_items=0 if exact else 1),
+        elige_modelo, strict=False)
+    validas, fallidas = _partir(out.get("cards", []), components,
+                                extra_check, max_text)
+    if exact:
+        # 1:1 insight -> tarjeta: lo no cubierto va al reintento como
+        # faltante (salvo que ya esté fallido por otro motivo).
+        esperados = [i.get("id") for i in insights]
+        cubiertos = {c["insight_id"] for c in validas}
+        ya_fallidos = {f["insight_id"] for f in fallidas}
+        for iid in esperados:
+            if iid not in cubiertos and iid not in ya_fallidos:
+                fallidas.append({"insight_id": iid, "component": "?",
+                                 "motivos": ["sin tarjeta para este insight"]})
 
     if fallidas:
         ok = [(c["insight_id"], c["component"]) for c in validas]
@@ -340,7 +423,8 @@ def design(insights: list[dict], components: list[str],
         out2 = llm.chat_json(
             [{"role": "system", "content": system2},
              {"role": "user", "content":
-              f"Vas bien: estas {len(validas)} YA quedaron y NO las repitas "
+              base + "\n\nDatos extra:\n" + gather +
+              f"\nVas bien: estas {len(validas)} YA quedaron y NO las repitas "
               f"ni regeneres: {ok}. Estas {len(fallidas)} están mal, cada "
               f"una con su motivo: {mal}. Genera EXACTAMENTE "
               f"{len(fallidas)} tarjetas NUEVAS que las reemplacen "
@@ -348,7 +432,8 @@ def design(insights: list[dict], components: list[str],
               "con la forma de props indicada arriba)."}],
             _cards_schema(components, len(fallidas)), elige_modelo,
             strict=False)
-        validas2, fallidas2 = _partir(out2.get("cards", []), components)
+        validas2, fallidas2 = _partir(out2.get("cards", []), components,
+                                      extra_check, max_text)
         ids_ok = {c["insight_id"] for c in validas}
         for c in validas2:
             if c["insight_id"] in ids_ok:
@@ -361,6 +446,13 @@ def design(insights: list[dict], components: list[str],
         fallidas = fallidas2
 
     if fallidas:
+        if partial and validas:
+            import sys as _sys
+            print(f"[warn] design parcial: {len(validas)} válidas, "
+                  f"se omiten {len(fallidas)}: {fallidas}"[:300],
+                  file=_sys.stderr)
+            return {"cards": validas,
+                    "tools_usados": [a["tool"] for a in audit]}
         raise llm.LLMError(f"elección inválida tras reintento: {fallidas}")
     return {"cards": validas,
             "tools_usados": [a["tool"] for a in audit]}

@@ -489,6 +489,7 @@ export function ActionCard({
   action_label,
   tone = "neutral",
   icon,
+  onAction,
 }: {
   eyebrow: string;
   title: string;
@@ -497,6 +498,7 @@ export function ActionCard({
   action_label: string;
   tone?: "urgent" | "watch" | "neutral";
   icon?: string;
+  onAction?: () => void;
 }) {
   const visuals: Record<string, React.ReactNode> = {
     receipt: <ReceiptText className="size-12" />,
@@ -531,7 +533,7 @@ export function ActionCard({
             </span>
           ) : null}
         </div>
-        <Button className="col-start-2 mt-3 w-full">{action_label}</Button>
+        <Button className="col-start-2 mt-3 w-full" onClick={onAction}>{action_label}</Button>
       </Alert>
     </Card>
   );
@@ -920,11 +922,13 @@ function ResolutionCard({
   text,
   count,
   total,
+  onAction,
 }: {
   icon: React.ReactNode;
   text: string;
   count: number;
   total: string;
+  onAction?: () => void;
 }) {
   return (
     <Card>
@@ -935,7 +939,7 @@ function ResolutionCard({
         <p className="flex-1">
           <strong>{count}</strong> {text} (total {money(total)}).
         </p>
-        <Button size="sm">Resolver</Button>
+        <Button size="sm" onClick={onAction}>Resolver</Button>
       </CardContent>
     </Card>
   );
@@ -944,9 +948,11 @@ function ResolutionCard({
 export function ReceivablesResolution({
   count,
   total,
+  onAction,
 }: {
   count: number;
   total: string;
+  onAction?: () => void;
 }) {
   return (
     <ResolutionCard
@@ -954,6 +960,7 @@ export function ReceivablesResolution({
       text="facturas pendientes de cobro"
       count={count}
       total={total}
+      onAction={onAction}
     />
   );
 }
@@ -961,9 +968,11 @@ export function ReceivablesResolution({
 export function ReceiptsResolution({
   count,
   total,
+  onAction,
 }: {
   count: number;
   total: string;
+  onAction?: () => void;
 }) {
   return (
     <ResolutionCard
@@ -971,6 +980,7 @@ export function ReceiptsResolution({
       text="gastos necesitan factura"
       count={count}
       total={total}
+      onAction={onAction}
     />
   );
 }

@@ -115,3 +115,32 @@ def test_tope_tres_acciones_con_reservadas(monkeypatch):
                     design_fn=_design, summary_fn=lambda c, m: "r")
     assert len(out["actions"]) == 3  # 2 reservadas + 1 diseñada
     assert len(out["actions"]) + len(out["discovery"]) <= 8
+
+
+def test_critical_bar_sin_db():
+    from fastapi.testclient import TestClient
+
+    import app.main as main
+
+    r = TestClient(main.app).get("/api/critical-bar",
+                                 params={"month": "2026-08"})
+    assert r.status_code == 200
+    body = r.json()
+    assert body["month"] == "2026-08" and body["pendientes"] == 3
+    comps = {c["component"] for c in body["items"]}
+    # 2 reservadas accionables + 1 crítica determinista (runway 4<=7 del seed)
+    assert comps == {"receipts_resolution", "receivables_resolution",
+                     "insight_text"}
+    assert "tax_summary" not in comps
+
+
+def test_drill_chat_scenarios_sin_db_piden_supabase():
+    from fastapi.testclient import TestClient
+
+    import app.main as main
+
+    client = TestClient(main.app)
+    assert client.get("/api/drill",
+                      params={"insight_id": "x"}).status_code == 503
+    assert client.get("/api/scenarios").status_code == 503
+    assert client.post("/api/scenarios", json={}).status_code == 503

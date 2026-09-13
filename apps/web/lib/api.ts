@@ -4,11 +4,14 @@ import type {
   ChatResponse,
   CompanyProfile,
   ContactItem,
+  CriticalBar,
+  DrillResult,
   DashboardData,
   DraftItem,
   FinancialSummary,
   GenDashboard,
   MatchItem,
+  SavedScenario,
   ProfileSugerencia,
   ReceivableItem,
   SendItem,
@@ -113,3 +116,21 @@ export const fetchSugerencia = () =>
 
 export const fetchGenDashboard = () =>
   get<GenDashboard>("/api/dashboard/gen");
+
+export const fetchCriticalBar = () =>
+  get<CriticalBar>("/api/critical-bar");
+
+export const fetchDrill = (insight_id: string) =>
+  get<DrillResult>(
+    `/api/drill?insight_id=${encodeURIComponent(insight_id)}`,
+  );
+
+export const fetchScenarios = () =>
+  get<{ items: SavedScenario[] }>("/api/scenarios");
+
+export const saveScenario = (body: {
+  conversation_id?: string | null;
+  titulo: string;
+  detalle: string;
+  cifras?: Record<string, unknown>;
+}) => post<SavedScenario>("/api/scenarios", body);

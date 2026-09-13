@@ -49,8 +49,8 @@ const REGISTRY: Record<UISchema["component"], React.FC<any>> = {
   tax_summary: TaxSummary,
 };
 
-export function DynamicUI({ schema }: { schema: UISchema }) {
+export function DynamicUI({ schema, onAction }: { schema: UISchema; onAction?: (component: string, props: Record<string, unknown>) => void }) {
   const Cmp = REGISTRY[schema.component];
   if (!Cmp) return <p>Componente no soportado: {schema.component}</p>;
-  return <Cmp {...schema.props} />;
+  return <Cmp {...schema.props} onAction={onAction ? () => onAction(schema.component, schema.props as Record<string, unknown>) : undefined} />;
 }

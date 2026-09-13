@@ -79,13 +79,19 @@ abstraído (`log`|`resend`). `/cobranza` funcional sin diseño.
    Verificado en vivo vs motor: 0 discrepancias (piloto 2026-07).
    Motor: CxC se agrupa por RFC con fallback a nombre si es genérico
    (XAXX/XAXE) o vacío (`_entidad_cfdi`); RFC genérico nunca es llave.
-5. Composition Engine ✅ (JSON, sin página aún): `app/composition.py`
+5. Composition Engine ✅ + workspace ✅: `app/composition.py`
    (4 anchors con trend % en código + comentario, acciones condicionales
    con regla obligatoria, discovery con scoring del spec + diversidad
    máx 2/familia, `weekly_summary` al componer) + `GET /api/dashboard/gen`
    idempotente por semana + memoria `insight_exposures` +
-   `dashboard_compositions` (migraciones 011/012 — aplicar en SQL Editor).
-   Listo para `DynamicUI` (falta `financial_anchor` en registry web).
+   `dashboard_compositions` (migraciones 011/012 aplicadas).
+   `/` es el workspace: weekly + consultant_view temporal (ask-bar,
+   `POST /api/chat` devuelve `tarjetas` (consultant_view: cantidad libre
+   sin `insight_text`, valores por `=ruta` MCP + `validar_cifras` verbatim +
+   corrección determinista ±5% o reescritura; texto verificado igual) + deep_dive (`GET /api/drill`) +
+   barra compacta (`GET /api/critical-bar`) + escenarios guardados
+   (`POST|GET /api/scenarios`, migración 013 — aplicar en SQL Editor).
+   `financial_anchor` en catálogo: 18.
    Diseñador ✅ endurecido: `PROPS_SCHEMAS` espejo de `ui-schema.ts`
    (18 componentes incl. financial_anchor, listas no vacías, extras
    permitidos), footnote ≤140 chars y sin tecnicismos (HHI, DSO, burn…),
@@ -139,3 +145,12 @@ Flujo spec §3.3 caso 1 + §19, con datos y contratos ya listos:
 * Endurecer RLS al meter auth. `analyst_insights` nace aplicada en
   Supabase con `migrations/010_analyst_insights.sql` (pendiente aplicar).
 * `GET /api/transactions` no existe a propósito (detalle en CSV/Supabase).
+
+## Modelos IA (todo gpt-6-astra)
+* Tool-calling vía `/v1/responses` (`OPENAI_TOOLS_API=responses`,
+  `reasoning.effort=low`): astra rechaza function tools en
+  chat/completions a cualquier effort ('none' tampoco lo acepta).
+  `OPENAI_TOOL_MODEL` elige el modelo del loop.
+* `chat()` con fallback automático (reasoning_effort/temperature) por si
+  cambias de modelo. Verificado en vivo todo-astra: $98,500.00 exactos,
+  2 tarjetas (hero + bars), 0 discrepancias.

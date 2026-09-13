@@ -225,7 +225,7 @@ def get_metric(name: str, month: str | None = None) -> dict:
             "descripcion": meta["descripcion"]}
 
 
-def get_open_receivables() -> list[dict]:
+def get_open_receivables() -> dict:
     recs = rc.detectar_cxc(data.get_cfdis(), data.get_matches(),
                            get_settings().COMPANY_ID)
     por_uuid = {c.uuid: c for c in data.get_cfdis()}
@@ -238,7 +238,8 @@ def get_open_receivables() -> list[dict]:
                     "issued_at": r.issued_at.isoformat(),
                     "due_date": r.due_date.isoformat() if r.due_date else None,
                     "folio": f"{c.serie or ''}-{c.folio or ''}".strip("-") if c else ""})
-    return out
+    total = sum((r.amount_pending or Decimal("0") for r in recs), Decimal("0"))
+    return {"items": out, "count": len(out), "total": _s(total)}
 
 
 def get_merchants(rubro: str | None = None, min_total: str | None = None,
@@ -318,7 +319,7 @@ def get_customer_contact(customer_rfc: str) -> dict:
 
 
 def prepare_payment_reminder(receivable_id: str) -> dict:
-    recs = {r["id"]: r for r in get_open_receivables()}
+    recs = {r["id"]: r for r in get_open_receivables()["items"]}
     if receivable_id not in recs:
         raise ValueError(f"receivable no abierto: {receivable_id}")
     r = recs[receivable_id]

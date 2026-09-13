@@ -74,21 +74,36 @@ def tool_model() -> str:
 
 def chat(messages: list[dict], tools: list[ToolDef] | None = None,
          model: str | None = None, temperature: float | None = None) -> ChatResult:
-    """Una llamada. messages: [{role, content}]."""
+    """Una llamada. messages: [{role, content}].
+
+    Fallback automático para reasoning models (astra/sol): si el 400
+    rechaza function tools con reasoning activo, reintenta con
+    reasoning_effort='low' (mínimo que acepta tools); si rechaza
+    temperature custom, reintenta sin ella. Así OPENAI_TOOL_MODEL puede
+    ser un reasoning sin tocar agentes.
+    """
     s = get_settings()
     kwargs: dict = {"model": model or s.OPENAI_FAST_MODEL, "messages": messages}
     if temperature is not None:
         kwargs["temperature"] = temperature
-    try:
-        resp = _client().chat.completions.create(
-            **kwargs,
-            tools=_as_openai_tools(tools) if tools else None,
-        )
-    except LLMError:
-        raise
-    except Exception as e:
-        raise LLMError(f"openai chat: {e}") from e
-    return _to_result(resp.choices[0].message)
+    if tools:
+        kwargs["tools"] = _as_openai_tools(tools)
+    for _ in range(3):
+        try:
+            resp = _client().chat.completions.create(**kwargs)
+            return _to_result(resp.choices[0].message)
+        except LLMError:
+            raise
+        except Exception as e:
+            msg = str(e)
+            if tools and "reasoning_effort" in msg and "reasoning_effort" not in kwargs:
+                kwargs["reasoning_effort"] = "low"
+                continue
+            if "temperature" in msg and "temperature" in kwargs:
+                del kwargs["temperature"]
+                continue
+            raise LLMError(f"openai chat: {e}") from e
+    raise LLMError("inalcanzable")
 
 
 def chat_json(messages: list[dict], schema: dict,
@@ -122,6 +137,74 @@ def chat_json(messages: list[dict], schema: dict,
     raise LLMError("inalcanzable")
 
 
+def _as_responses_tools(tools: list[ToolDef]) -> list[dict]:
+    return [{"type": "function", "name": t.name, "description": t.description,
+             "parameters": t.parameters, "strict": True} for t in tools]
+
+
+def _responses_text(output: list) -> str:
+    partes = []
+    for item in output or []:
+        if getattr(item, "type", "") == "message":
+            for b in (getattr(item, "content", None) or []):
+                if getattr(b, "type", "") == "output_text":
+                    partes.append(getattr(b, "text", "") or "")
+    return "".join(partes)
+
+
+def _responses_loop(system: str, history: list[dict], tools: list[ToolDef],
+                    executor, modelo: str, max_steps: int):
+    """Tool loop vía /v1/responses (reasoning que rechaza tools en chat).
+
+    Misma auditoría que el loop de chat: [{tool, args, ms[, error]}].
+    """
+    import time
+
+    entrada: list[dict] = [{"role": "system", "content": system}] + list(history)
+    defs = _as_responses_tools(tools)
+    audit: list[dict] = []
+    for _ in range(max_steps):
+        try:
+            resp = _client().responses.create(
+                model=modelo, input=entrada, tools=defs,
+                reasoning={"effort": "low"},
+            )
+        except Exception as e:
+            raise LLMError(f"openai responses: {e}") from e
+        llamadas = [it for it in (resp.output or [])
+                    if getattr(it, "type", "") == "function_call"]
+        if not llamadas:
+            return _responses_text(resp.output), audit, False
+        for it in llamadas:
+            try:
+                args = json.loads(getattr(it, "arguments", None) or "{}")
+            except json.JSONDecodeError as e:
+                raise LLMError(f"args inválidos en {it.name}: {e}")
+            entrada.append(it)
+            t0 = time.time()
+            try:
+                out = executor(it.name, args)
+                audit.append({"tool": it.name, "args": args,
+                              "ms": int((time.time() - t0) * 1000)})
+                entrada.append({"type": "function_call_output",
+                                "call_id": it.call_id, "output": _json(out)})
+            except Exception as e:
+                audit.append({"tool": it.name, "args": args,
+                              "ms": int((time.time() - t0) * 1000),
+                              "error": str(e)[:200]})
+                entrada.append({"type": "function_call_output",
+                                "call_id": it.call_id,
+                                "output": f"ERROR: {e}"})
+    try:
+        resp = _client().responses.create(
+            model=modelo, input=entrada,
+            reasoning={"effort": "low"},
+        )
+        return _responses_text(resp.output), audit, True
+    except Exception as e:
+        raise LLMError(f"openai responses: {e}") from e
+
+
 def run_tool_loop(system: str, history: list[dict], tools: list[ToolDef],
                   executor, model: str | None = None,
                   max_steps: int = 8, temperature: float | None = None) -> tuple[str, list[dict], bool]:
@@ -132,6 +215,9 @@ def run_tool_loop(system: str, history: list[dict], tools: list[ToolDef],
     """
     s = get_settings()
     modelo = model or s.OPENAI_FAST_MODEL
+    if tools and s.OPENAI_TOOLS_API == "responses":
+        return _responses_loop(system, history, tools, executor, modelo,
+                               max_steps)
     msgs = [{"role": "system", "content": system}] + list(history)
     audit: list[dict] = []
     import time

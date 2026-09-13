@@ -26,10 +26,12 @@ def historial(sb: Any, cid: str, limite: int = 10) -> list[dict]:
 
 
 def guardar_turno(sb: Any, cid: str, role: str, contenido: str,
-                  tool_calls: list | None = None) -> None:
+                  tool_calls: list | None = None,
+                  tarjetas: list | None = None) -> None:
     (sb.table("messages").insert(
         {"id": uuid.uuid4().hex, "conversation_id": cid, "role": role,
-         "contenido": contenido, "tool_calls": tool_calls or []}).execute())
+         "contenido": contenido, "tool_calls": tool_calls or [],
+         "tarjetas": tarjetas or []}).execute())
 
 
 def registrar_solicitud(sb: Any, company_id: str, terms: dict) -> dict:

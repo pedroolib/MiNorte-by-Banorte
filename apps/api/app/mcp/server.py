@@ -80,8 +80,8 @@ if mcp is not None:  # pragma: no cover - transporte, no lógica
         return T.metric_catalog()
 
     @mcp.tool()
-    def get_open_receivables() -> list:
-        """CxC abiertas."""
+    def get_open_receivables() -> dict:
+        """CxC abiertas (items + count + total)."""
         return T.get_open_receivables()
 
     @mcp.tool()
