@@ -124,14 +124,9 @@ export default function Workspace() {
     <div className="min-h-screen">
       <header className="sticky top-0 z-40 border-b border-border/70 bg-background/85 backdrop-blur-xl">
         <div className="mx-auto flex h-16 max-w-7xl items-center gap-6 px-4 sm:px-6 lg:px-8">
-          <Link href="/" className="flex shrink-0 items-center gap-2.5" aria-label="MiNorte inicio">
-            <BanorteMark />
-            <div className="leading-none">
-              <span className="block text-sm font-extrabold tracking-tight">MiNorte</span>
-              <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-                by Banorte
-              </span>
-            </div>
+          <Link href="/" className="flex shrink-0 items-center" aria-label="MiNorte inicio">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/minorte-logo.png" alt="MiNorte" className="h-7 w-auto" />
           </Link>
 
           <div className="ml-auto flex items-center gap-2">
@@ -216,27 +211,6 @@ function preguntaPara(component: string, props: Record<string, unknown>) {
   if (component === "receivables_resolution")
     return `Tengo ${p.count} facturas por cobrar por $${p.total}, ¿cómo las cobro?`;
   return `¿Qué hago con esto: ${String(props.title ?? component)}?`;
-}
-
-/**
- * Isotipo oficial Banorte (mismo trazo que `app/icon.svg`, el favicon del tab).
- * Rojo institucional #EC1C2D, sin recolorear: es marca registrada.
- */
-function BanorteMark() {
-  return (
-    <svg
-      viewBox="0 0 382 235.2"
-      role="img"
-      aria-label="Banorte"
-      className="block h-9 w-auto shrink-0"
-    >
-      <g fill="#EC1C2D" transform="matrix(3.2,0,0,3.2,-65.6,-911.04)">
-        <path d="m 84.5,284.7 c -28.5,0 -51.6,7.5 -51.6,16.8 0,7.8 16.1,14.3 38,16.2 l 9,-27.7 1.6,28.2 c 1,0 2,0 3.1,0 28.5,0 51.6,-7.5 51.6,-16.8 -0.1,-9.1 -23.2,-16.7 -51.7,-16.7" />
-        <path d="m 70.6,318.7 c -27.8,0.3 -50.1,9.1 -50.1,20 0,9.2 15.8,16.9 37.4,19.3 z" />
-        <path d="m 81.4,319 2.2,39.2 c 22.9,-2 39.9,-10 39.9,-19.5 0.1,-9.8 -18.1,-18 -42.1,-19.7" />
-      </g>
-    </svg>
-  );
 }
 
 
@@ -359,7 +333,7 @@ function WeeklyView({
         <div className="flex flex-wrap items-center gap-3">
           <div>
             <p className="text-xs font-bold uppercase tracking-[0.16em] text-muted-foreground">
-              {data.month} · {data.week_id}
+              {data.month}
             </p>
             <h2 className="mt-1 text-xl font-bold tracking-tight">Tu semana financiera</h2>
           </div>

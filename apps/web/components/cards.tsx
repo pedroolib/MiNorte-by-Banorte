@@ -318,7 +318,7 @@ export function HeroNumber({
 
 /* ---------------- multi_ring ---------------- */
 
-const RING_COLORS = ["#16a34a", "#7c3aed", "#eb0029", "#d97706"];
+const RING_COLORS = ["#16a34a", "#d97706", "#eb0029", "#9da4ac"];
 
 export function MultiRing({ items, footnote }: { items: { label: string; value: number }[]; footnote?: string }) {
   if (!items.length) return <Empty what="indicadores" />;
@@ -339,7 +339,7 @@ export function MultiRing({ items, footnote }: { items: { label: string; value: 
             <RadialBarChart data={data} innerRadius="30%" outerRadius="100%" startAngle={90} endAngle={-270}>
               <ChartTooltip cursor={false} content={<ChartTooltipContent hideLabel nameKey="name" />} />
               <PolarGrid gridType="circle" radialLines={false} stroke="none" />
-              <RadialBar dataKey="value" background cornerRadius={8} />
+              <RadialBar dataKey="value" background={{ fill: "hsl(var(--muted))" }} cornerRadius={8} />
               <PolarRadiusAxis tick={false} tickLine={false} axisLine={false}>
                 <Label
                   content={({ viewBox }) => {
@@ -474,7 +474,7 @@ export function DonutTotal({
 }) {
   const total = segments.reduce((s, x) => s + num(x.value), 0);
   if (!segments.length || total <= 0) return <Empty what="segmentos" />;
-  const colors = ["#f59e0b", "#d9dde1", "#34383e", "#9da4ac"];
+  const colors = ["hsl(var(--primary))", "hsl(var(--muted-foreground))", "#d97706", "hsl(var(--muted))"];
   const data = segments.map((s, i) => ({
     name: s.label,
     value: num(s.value),
@@ -493,7 +493,7 @@ export function DonutTotal({
           <ChartContainer config={config} className="mx-auto aspect-square w-full max-w-[180px] sm:max-w-[200px]">
             <PieChart>
               <ChartTooltip cursor={false} content={<ChartTooltipContent hideLabel />} />
-              <Pie data={data} dataKey="value" nameKey="name" innerRadius="62%" outerRadius="100%" strokeWidth={2}>
+              <Pie data={data} dataKey="value" nameKey="name" innerRadius="62%" outerRadius="100%" strokeWidth={2} stroke="hsl(var(--card))">
                 {data.map((entry) => (
                   <Cell key={entry.name} fill={entry.fill} />
                 ))}
@@ -638,7 +638,7 @@ export function ActionCard({
                   ? "bg-primary/10 text-primary"
                   : tone === "watch"
                     ? "bg-amber-500/10 text-amber-500"
-                    : "bg-muted text-muted-foreground",
+                    : "bg-secondary text-secondary-foreground",
               )}
             >
               {visual}
