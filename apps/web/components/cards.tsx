@@ -436,8 +436,8 @@ export function DonutTotal({
         <CardTitle className="text-sm">{title}</CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="flex items-center gap-5">
-          <ChartContainer config={config} className="mx-auto aspect-square w-full max-w-[140px]">
+        <div className="flex items-center gap-6">
+          <ChartContainer config={config} className="mx-auto aspect-square w-full max-w-[180px] sm:max-w-[200px]">
             <PieChart>
               <ChartTooltip cursor={false} content={<ChartTooltipContent hideLabel />} />
               <Pie data={data} dataKey="value" nameKey="name" innerRadius="62%" outerRadius="100%" strokeWidth={2}>
@@ -449,10 +449,10 @@ export function DonutTotal({
                     if (viewBox && "cx" in viewBox && "cy" in viewBox) {
                       return (
                         <text x={viewBox.cx} y={viewBox.cy} textAnchor="middle" dominantBaseline="middle">
-                          <tspan x={viewBox.cx} y={(viewBox.cy || 0) - 8} fontSize="14" fontWeight="800" fill="hsl(var(--foreground))">
+                          <tspan x={viewBox.cx} y={(viewBox.cy || 0) - 10} fontSize="18" fontWeight="800" fill="hsl(var(--foreground))">
                             {center_value}
                           </tspan>
-                          <tspan x={viewBox.cx} y={(viewBox.cy || 0) + 12} fontSize="9" fill="hsl(var(--muted-foreground))">
+                          <tspan x={viewBox.cx} y={(viewBox.cy || 0) + 15} fontSize="11" fill="hsl(var(--muted-foreground))">
                             {center_label}
                           </tspan>
                         </text>
@@ -612,15 +612,15 @@ export function TimeSeries({
   const data = points.map((p, i) => ({ label: p.label, value: vals[i] }));
   const minVal = Math.min(...vals);
   return (
-    <Card>
+    <Card className="flex h-full flex-col">
       <CardHeader className="pb-2">
         <div className="flex items-baseline justify-between">
           <CardTitle className="text-sm">{title}</CardTitle>
           {period_label ? <span className="text-xs text-muted-foreground">{period_label}</span> : null}
         </div>
       </CardHeader>
-      <CardContent>
-        <ChartContainer config={{ value: { label: title, color } }} className="h-[120px] w-full">
+      <CardContent className="flex flex-1 flex-col">
+        <ChartContainer config={{ value: { label: title, color } }} className="aspect-auto w-full flex-1 min-h-[140px]">
           <AreaChart data={data} margin={{ top: 8, right: 8, bottom: 0, left: 8 }}>
             <defs>
               <linearGradient id="tsFill" x1="0" y1="0" x2="0" y2="1">
