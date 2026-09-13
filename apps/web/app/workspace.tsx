@@ -93,6 +93,7 @@ export default function Workspace() {
     if (!t || busy) return;
     setBusy(true);
     setError(null);
+    setAnswer(null); // quita las tarjetas viejas en cuanto pregunta de nuevo
     try {
       const cid =
         typeof window === "undefined"
@@ -166,26 +167,26 @@ export default function Workspace() {
           <div className="sm:[&_input]:pl-10">
             <AskBar onAsk={preguntar} busy={busy} />
           </div>
-          {answer ? (
-            <div className="absolute inset-x-0 top-full z-30 pt-2">
-              <AutoHidePanel key={answer.cid ?? answer.pregunta} onClose={() => setAnswer(null)}>
-                <ConsultantView
-                  answer={answer}
-                  onClose={() => setAnswer(null)}
-                  onSave={async () => {
-                    await saveScenario({
-                      conversation_id: answer.cid,
-                      titulo: answer.pregunta.slice(0, 80),
-                      detalle: answer.respuesta.slice(0, 500),
-                      cifras: {},
-                    });
-                    scenarios.refetch();
-                  }}
-                />
-              </AutoHidePanel>
-            </div>
-          ) : null}
         </div>
+
+        {answer ? (
+          <section aria-label="Respuesta del asesor">
+            <ConsultantView
+              key={answer.cid ?? answer.pregunta}
+              answer={answer}
+              onClose={() => setAnswer(null)}
+              onSave={async () => {
+                await saveScenario({
+                  conversation_id: answer.cid,
+                  titulo: answer.pregunta.slice(0, 80),
+                  detalle: answer.respuesta.slice(0, 500),
+                  cifras: {},
+                });
+                scenarios.refetch();
+              }}
+            />
+          </section>
+        ) : null}
 
         {error ? (
           <Alert variant="destructive">
