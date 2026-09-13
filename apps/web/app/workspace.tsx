@@ -157,7 +157,17 @@ export default function Workspace() {
 
       <main className="mx-auto max-w-7xl space-y-5 px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
         {saludo ? (
-          <p className="text-2xl font-bold tracking-tight">{saludo}</p>
+          <section
+            aria-label="Saludo"
+            className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-[#bc0021] via-[#eb0029] to-[#eb0029] px-6 pb-6 pt-16 sm:px-10 sm:pt-20"
+          >
+            <div className="pointer-events-none absolute inset-y-0 right-6 flex items-center sm:right-10">
+              <BanorteMark tone="white" className="block h-14 w-auto opacity-90 sm:h-20" />
+            </div>
+            <h1 className="relative text-left text-4xl font-extrabold tracking-tight text-white sm:text-5xl lg:text-6xl">
+              {saludo}
+            </h1>
+          </section>
         ) : null}
 
         <div className="relative">
