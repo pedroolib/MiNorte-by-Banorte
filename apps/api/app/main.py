@@ -669,12 +669,15 @@ def api_analyst_insights(month: str | None = None):
 
 
 @app.get("/api/dashboard/gen")
-def api_dashboard_gen(month: str | None = None, week: str | None = None):
+def api_dashboard_gen(month: str | None = None, week: str | None = None,
+                      forzar: bool = False):
     """Dashboard generativo JSON (sin frontend aún, listo para DynamicUI).
 
     4 anchors + acciones condicionales + discovery rotativo + summary.
-    Idempotente por semana ISO: si ya existe, la devuelve sin regenerar
-    (sin gastar LLM).
+    Idempotente por semana ISO: si ya existe Y sus insumos no cambiaron,
+    la devuelve sin regenerar (sin gastar LLM). La caché caduca sola si
+    el pool cambió (huella) o si quedó incompleta; ?forzar=1 regenera
+    siempre.
     """
     from fastapi import HTTPException
 
@@ -689,11 +692,18 @@ def api_dashboard_gen(month: str | None = None, week: str | None = None):
     month = month or _latest_month()
     wid = week or _cp.week_id()
     try:
-        cached = _cr.leer_composicion(sb, company_id, wid)
+        cached = None if forzar else _cr.leer_composicion(sb, company_id, wid)
     except Exception:
         cached = None
-    if cached:
-        return cached
+    if cached and not cached.get("incompleta"):
+        try:
+            actual = _cp.huella(_ar.listar(sb, company_id, month), month)
+        except Exception:
+            actual = None
+        if actual is not None and cached.get("huella") == actual:
+            return cached
+        # Sin huella comparable (o distinta): los insumos cambiaron,
+        # se recompone abajo en vez de servir foto vieja.
     try:
         pool = _ar.listar(sb, company_id, month)
         comments = {a["metric"]: a["comment"]
@@ -706,8 +716,11 @@ def api_dashboard_gen(month: str | None = None, week: str | None = None):
             raise HTTPException(502, f"modelo no disponible: {e}")
         exps = out.pop("_exposures")
         try:
-            _cr.guardar_composicion(sb, company_id, wid, month, out)
-            _cr.registrar(sb, company_id, wid, exps)
+            # Incompleta no se guarda: el próximo GET reintenta en vez de
+            # congelar una semana degenerada (pool vacío al componer, etc.).
+            if not out.get("incompleta"):
+                _cr.guardar_composicion(sb, company_id, wid, month, out)
+                _cr.registrar(sb, company_id, wid, exps)
         except Exception as e:
             if ("PGRST205" in str(e) or "PGRST204" in str(e)
             or "Could not find the table" in str(e)

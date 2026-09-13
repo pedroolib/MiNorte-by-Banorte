@@ -200,3 +200,40 @@ def test_garantiza_cuatro_aunque_falte_diseno():
     assert got == {f"k{i}" for i in range(4)}
     assert any(c["component"] == "insight_text"  # respaldo determinista
                for c in C_RES["discovery"])
+
+
+def test_huella_cambia_con_insumos():
+    pool = [_insight(f"k{i}") for i in range(3)]
+    h1 = C.huella(pool, "2026-07")
+    assert C.huella(pool, "2026-07") == h1  # estable
+    assert C.huella(pool, "2026-08") != h1  # mes distinto
+    assert C.huella(pool[:2], "2026-07") != h1  # conteo distinto
+    con_fecha = [dict(it, created_at="2026-09-13T10:00:00+00:00")
+                 for it in pool]
+    assert C.huella(con_fecha, "2026-07") != C.huella(pool, "2026-07")
+
+
+def test_incompleta_no_se_congela(monkeypatch):
+    monkeypatch.setattr(C.D, "reserved_cards", lambda month, ex: [])
+    # Pool vacío pero el mes SÍ tiene datos (_ex dice tiene_datos True):
+    # es la semana degenerada (Analista aún no corre) -> incompleta.
+    vacio = C.compose("2026-07", [], {}, [], _ex({}), "2026-W99",
+                      design_fn=_design, summary_fn=lambda c, m: "r")
+    assert vacio["incompleta"] is True
+    assert vacio["discovery"] == []
+    # Mes sin datos y sin pool: legítimamente vacía, no incompleta.
+    def _ex_vacio(name, args):
+        if name == "get_signals":
+            return {"signals": {"tiene_datos": False}}
+        raise ValueError(name)
+    ok = C.compose("2026-08", [], {}, [], _ex_vacio, "2026-W99",
+                   design_fn=_design, summary_fn=lambda c, m: "r")
+    assert ok["incompleta"] is False
+    # pool con diseño vacío -> el respaldo determinista cubre: completa
+    corto = lambda cards, comps: {"cards": []}  # noqa: E731
+    pool = [_insight("k1"), _insight("k2")]
+    out = C.compose("2026-07", pool, {}, [], _ex({}), "2026-W99",
+                    design_fn=corto, summary_fn=lambda c, m: "r")
+    assert out["incompleta"] is False
+    assert len(out["discovery"]) == 2  # respaldo insight_text
+    assert "huella" in out and out["huella"].startswith("2026-07:2:")

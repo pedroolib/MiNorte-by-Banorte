@@ -84,7 +84,9 @@ abstraído (`log`|`resend`). `/cobranza` funcional sin diseño.
    con regla obligatoria, discovery con scoring del spec + diversidad
    máx 2/familia, `weekly_summary` al componer) + `GET /api/dashboard/gen`
    idempotente por semana + memoria `insight_exposures` +
-   `dashboard_compositions` (migraciones 011/012 aplicadas).
+   `dashboard_compositions` (migraciones 011/012 aplicadas). Caché con
+   huella de insumos (re-correr el Analista la caduca sola), flag
+   `incompleta` (pool vacío con datos no se congela) y `?forzar=1`.
    `/` es el workspace: weekly + consultant_view temporal (ask-bar,
    `POST /api/chat` devuelve `tarjetas` (consultant_view: cantidad libre
    sin `insight_text`, valores por `=ruta` MCP + `validar_cifras` verbatim +

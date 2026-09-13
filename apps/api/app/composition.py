@@ -174,6 +174,17 @@ def discover(pool: list[dict], exposures: list[dict], n: int,
     return elegidos
 
 
+def huella(pool: list[dict], month: str) -> str:
+    """Fingerprint de los insumos: si cambia, el caché semanal caduca.
+
+    Incluye mes, cantidad y marca temporal máxima: re-correr el Analista
+    (aunque dé los mismos 10 kinds) invalida composiciones viejas.
+    """
+    marcas = [str(it.get("updated_at") or it.get("created_at") or "")
+              for it in pool]
+    return f"{month}:{len(pool)}:{max(marcas) if marcas else ''}"
+
+
 def _para_disenar(items: list[dict]) -> list[dict]:
     return [{"id": it.get("id") or it.get("kind"),
              "severity": it.get("severity", "info"),
@@ -207,6 +218,11 @@ def compose(month: str, pool: list[dict], anchor_comments: dict,
     summary_fn = summary_fn or weekly_summary
     wid = wid or week_id()
 
+    try:
+        tiene_datos = bool(ex("get_signals", {"month": month})
+                           .get("signals", {}).get("tiene_datos"))
+    except Exception:
+        tiene_datos = True  # si no se puede saber, no bloquear por defecto
     ancs = anchors(month, ex, anchor_comments)
 
     reservadas = [c for c in D.reserved_cards(month, ex)
@@ -288,4 +304,11 @@ def compose(month: str, pool: list[dict], anchor_comments: dict,
     return {"month": month, "week_id": wid, "anchors": ancs,
             "actions": reservadas + cards_acc,
             "discovery": cards_dis,
-            "summary": summary, "_exposures": exps}
+            "summary": summary, "_exposures": exps,
+            "huella": huella(pool, month),
+            # Incompleta = el mes tiene datos pero no hubo de dónde diseñar
+            # (pool vacío: el Analista aún no corre) o el diseño no cubrió
+            # nada. El endpoint no la guarda: el próximo GET reintenta en
+            # vez de congelar una semana degenerada.
+            "incompleta": (not pool and tiene_datos)
+                          or (bool(pool) and not disenadas)}
